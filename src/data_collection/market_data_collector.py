@@ -55,7 +55,7 @@ def save_market_data_to_csv(
 
         rates_df = pd.DataFrame(rates)
 
-        # Convert 'time' from seconds to datetime
+        # convert 'time' from seconds to datetime
         rates_df["time"] = pd.to_datetime(rates_df["time"], unit="s", utc=True)
 
         # save to CSV

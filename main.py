@@ -4,7 +4,7 @@ import pytz
 from datetime import datetime
 
 # import modular components
-from src.data_collection.market_data_collector import save_market_data_to_csv
+from src.data_collection import save_market_data_to_csv
 
 
 def main():
