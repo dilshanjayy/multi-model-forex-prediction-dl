@@ -9,6 +9,9 @@ def engineer_technical_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     """
     df = dataframe.copy()
 
+    # ensure 'time' column is in datetime format with timezone awareness
+    df["time"] = pd.to_datetime(df["time"], utc=True)
+
     # ensure data is sorted by time
     df = df.sort_values("time").reset_index(drop=True)
 
@@ -37,6 +40,6 @@ def engineer_technical_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     df["target"] = df["close"].shift(-1)
 
     # drop rows with NaN values (due to indicator calculations)
-    clean_df = df.dropna().copy()
+    processed_df = df.dropna().copy()
 
-    return clean_df
+    return processed_df

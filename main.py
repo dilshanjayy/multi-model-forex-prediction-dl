@@ -1,10 +1,13 @@
 import argparse
 import sys
+import os
 import pytz
 from datetime import datetime
+import pandas as pd
 
 # import modular components
 from src.data_collection import save_market_data_to_csv
+from src.preprocessing.feature_engineering import engineer_technical_features
 
 
 def main():
@@ -18,8 +21,6 @@ def main():
 
     # subcommand: collect
     parser_collect = subparsers.add_parser("collect", help="Collect market data")
-
-    # options for collect command
     parser_collect.add_argument(
         "--symbol",
         type=str,
@@ -43,6 +44,23 @@ def main():
         type=str,
         default="2026-01-31",
         help="End date for data collection (YYYY-MM-DD)",
+    )
+
+    # subcommand: process
+    parser_process = subparsers.add_parser(
+        "process", help="Process raw data into features"
+    )
+    parser_process.add_argument(
+        "--input",
+        type=str,
+        required=True,
+        help="Path to the input CSV file containing raw market data",
+    )
+    parser_process.add_argument(
+        "--output-dir",
+        type=str,
+        default="data/processed_market",
+        help="Directory to save the processed CSV file with engineered features",
     )
 
     # execute the appropriate pipeline steps based on the command
@@ -77,6 +95,33 @@ def main():
             sys.exit(1)
 
         print("--- Data Collection Step Complete ---")
+
+    # process
+    if args.command in ["process", "all"]:
+        print("\n--- Starting Data Processing ---")
+        print(
+            f"Processing raw data from {args.input} and saving to {args.output_dir}..."
+        )
+
+        if not os.path.exists(args.input):
+            print(f"Error: Input file {args.input} does not exist.")
+            sys.exit(1)
+
+        print("Reading raw data and processing features...")
+        df = pd.read_csv(args.input, parse_dates=["time"])
+        processed_df = engineer_technical_features(df)
+
+        # ensure output directory exists
+        os.makedirs(args.output_dir, exist_ok=True)
+
+        # construct output file path
+        base_name = os.path.basename(args.input)
+        output_path = os.path.join(args.output_dir, f"processed_{base_name}")
+
+        # save processed data to CSV
+        processed_df.to_csv(output_path, index=False)
+        print(f"Successfully saved processed data to {output_path}")
+        print("--- Data Processing Step Complete ---")
 
 
 if __name__ == "__main__":
