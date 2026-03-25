@@ -55,8 +55,13 @@ def save_market_data_to_csv(
 
         rates_df = pd.DataFrame(rates)
 
-        # convert 'time' from seconds to datetime
-        rates_df["time"] = pd.to_datetime(rates_df["time"], unit="s", utc=True)
+        # IC Markets server returns time in EET, so we need to convert it to UTC
+        # convert time from seconds since epoch to datetime
+        rates_df["time"] = pd.to_datetime(rates_df["time"], unit="s")
+        # localize to EET (MetaTrader5 server time) before converting to UTC
+        rates_df["time"] = rates_df["time"].dt.tz_localize("EET")
+        # convert to UTC for consistency
+        rates_df["time"] = rates_df["time"].dt.tz_convert("UTC")
 
         # save to CSV
         rates_df.to_csv(file_path, index=False)
