@@ -1,6 +1,5 @@
-import talib
 import pandas as pd
-import numpy as np
+import pandas_ta as ta
 
 
 def engineer_technical_features(dataframe: pd.DataFrame) -> pd.DataFrame:
@@ -9,37 +8,52 @@ def engineer_technical_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     """
     df = dataframe.copy()
 
-    # ensure 'time' column is in datetime format with timezone awareness
-    df["time"] = pd.to_datetime(df["time"], utc=True)
+    # standardize column names for pandas_ta
+    df.rename(
+        columns={
+            "open": "Open",
+            "high": "High",
+            "low": "Low",
+            "close": "Close",
+            "tick_volume": "Volume",
+        },
+        inplace=True,
+    )
 
-    # ensure data is sorted by time
-    df = df.sort_values("time").reset_index(drop=True)
+    # ensure time column is in datetime format and set as index
+    df["time"] = pd.to_datetime(df["time"], utc=True)
+    df.set_index("time", inplace=True, drop=False)
+    df.sort_index(inplace=True)
 
     # drop real_volume if it exists, as it's not needed for modeling
     if "real_volume" in df.columns:
-        df = df.drop(columns=["real_volume"])
+        df.drop(columns=["real_volume"], inplace=True)
 
-    # numpy arrays for TA-Lib
-    close = df["close"].to_numpy(dtype=np.float64)
-    high = df["high"].to_numpy(dtype=np.float64)
-    low = df["low"].to_numpy(dtype=np.float64)
-
-    # trend indicators
-    df["EMA_20"] = talib.EMA(close, timeperiod=20)
-
-    # momentum indicators
-    df["RSI_14"] = talib.RSI(close, timeperiod=14)
-    df["MACD"], df["MACD_signal"], df["MACD_hist"] = talib.MACD(
-        close, fastperiod=12, slowperiod=26, signalperiod=9
+    # define a comprehensive set of technical indicators to compute
+    baseline_strategy = ta.Study(  # type: ignore
+        name="Tech_Baseline",
+        cores=0,
+        ta=[
+            {"kind": "trix"},
+            {"kind": "vwap"},
+            {"kind": "mom"},
+            {"kind": "roc"},
+            {"kind": "rsi"},
+            {"kind": "atr"},
+            {"kind": "mfi"},
+            {"kind": "efi"},
+            {"kind": "bbands"},
+            {"kind": "cci"},
+            {"kind": "tsi"},
+            {"kind": "stochrsi"},
+            {"kind": "adx"},
+            {"kind": "stoch"},
+        ],
     )
 
-    # volatility indicators
-    df["ATR_14"] = talib.ATR(high, low, close, timeperiod=14)
+    df.ta.study(baseline_strategy)
 
-    # target variable: next period's close price
-    df["target"] = df["close"].shift(-1)
+    # drop rows with any NaN values that may have been introduced by the indicators
+    df.dropna(inplace=True)
 
-    # drop rows with NaN values (due to indicator calculations)
-    processed_df = df.dropna().copy()
-
-    return processed_df
+    return df
