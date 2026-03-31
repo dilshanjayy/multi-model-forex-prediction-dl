@@ -6,8 +6,8 @@ from datetime import datetime
 import pandas as pd
 
 # import modular components
-from src.data_collection import save_market_data_to_csv
-from src.preprocessing.feature_engineering import engineer_technical_features
+from src.data.market_data_collector import save_market_data_to_csv
+from src.data.feature_engineering import engineer_technical_features
 
 
 def main():
