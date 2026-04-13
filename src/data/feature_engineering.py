@@ -63,52 +63,37 @@ def engineer_technical_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     # drop rows with any NaN values that may have been introduced by the indicators
     df.dropna(inplace=True)
 
-    # create target labels using the Fixed-Time Horizon labeling approach
-    df = create_labels(df, future_periods=5)
+    # remove redundant features based on correlation analysis
+    df = purge_redundant_features(df)
+
+    # add multiple raw target horizons (e.g., 5, 12, 24 periods ahead)
+    # this saves the 'Fact' (raw return) instead of the 'Opinion' (class labels)
+    df = add_multi_horizon_targets(df, horizons=[5, 12, 24])
 
     return df
 
 
-def create_labels(df: pd.DataFrame, future_periods: int = 5) -> pd.DataFrame:
+def add_multi_horizon_targets(
+    df: pd.DataFrame, horizons: list = [5, 12, 24]
+) -> pd.DataFrame:
     """
-    Implements Fixed-Time Horizon labeling using dynamic quantiles.
-    Class 0: Up Trend (Top 35% of future returns)
-    Class 1: Down Trend (Bottom 30% of future returns)
-    Class 2: Unknown / Deadband (Middle 35% of future returns)
+    Adds raw future log returns for multiple time horizons.
+    The final classification labeling (quantiles) should be done
+    during training to avoid data leakage and allow for flexible tuning.
     """
+    for h in horizons:
+        col_name = f"Target_{h}h_Return"
+        df[col_name] = np.log(df["Close"].shift(-h) / df["Close"])
 
-    # calculate future log returns
-    df["Future_Log_Return"] = np.log(df["Close"].shift(-future_periods) / df["Close"])
+    # drop the last rows where we don't have future values for the longest horizon
     df.dropna(inplace=True)
-
-    # calculate dynamic quantiles for labeling
-    lower_threshold = df["Future_Log_Return"].quantile(0.30)
-    upper_threshold = df["Future_Log_Return"].quantile(0.65)
-
-    # assign classes based on quantile thresholds
-    conditions = [
-        df["Future_Log_Return"] > upper_threshold,  # Class 0: Up Trend
-        df["Future_Log_Return"] < lower_threshold,  # Class 1: Down Trend
-    ]
-    choices = [0, 1]
-
-    # Class 2 (Unknown / Deadband) is assigned by default to any returns that fall between the upper and lower thresholds
-    df["Target"] = np.select(
-        conditions, choices, default=2
-    )  # Class 2: Unknown / Deadband
-
-    # drop the Future_Log_Return column as it's no longer needed for modeling
-    df.drop(columns=["Future_Log_Return"], inplace=True)
-
-    # remove redundant features based on correlation analysis
-    df = purge_redundant_features(df)
 
     return df
 
 
 def purge_redundant_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Strips highly correlated (>0.90) technical indicators to optimize
+    strips highly correlated (>0.90) technical indicators to optimize
     the feature space for Conv1D kernels.
     """
     cols_to_drop = [
@@ -121,7 +106,7 @@ def purge_redundant_features(df: pd.DataFrame) -> pd.DataFrame:
         "BBU_5_2.0_2.0",  # 1.00 correlation with BBM
         "BBM_5_2.0_2.0",  # 1.00 correlation with VWAP_D
         "ADXR_14_2",  # 0.99 correlation with ADX
-        "spread",  # not a technical indicator and may introduce noise due to broker-specific spread variations
+        "spread",  # not a technical indicator and may introduce noise
     ]
 
     existing_cols = [col for col in df.columns if col in cols_to_drop]
