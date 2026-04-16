@@ -2,12 +2,23 @@ import argparse
 import sys
 import os
 import pytz
+import yaml
 from datetime import datetime
 import pandas as pd
 
 # import modular components
 from src.data.market_data_collector import save_market_data_to_csv
 from src.data.feature_engineering import engineer_technical_features
+from src.data.data_module import DataModule
+from src.models.baseline_trainer import run_baseline_training
+
+
+def load_config(config_path):
+    if not os.path.exists(config_path):
+        print(f"Error: Config file {config_path} not found.")
+        sys.exit(1)
+    with open(config_path, "r") as f:
+        return yaml.safe_load(f)
 
 
 def main():
@@ -17,9 +28,8 @@ def main():
 
     # add subparsers for different pipeline commands
     subparsers = parser.add_subparsers(dest="command", help="Pipeline commands")
-    subparsers.required = True
 
-    # subcommand: collect
+    # --- SUBCOMMAND: collect ---
     parser_collect = subparsers.add_parser("collect", help="Collect market data")
     parser_collect.add_argument(
         "--symbol",
@@ -46,7 +56,7 @@ def main():
         help="End date for data collection (YYYY-MM-DD)",
     )
 
-    # subcommand: process
+    # --- SUBCOMMAND: process ---
     parser_process = subparsers.add_parser(
         "process", help="Process raw data into features"
     )
@@ -60,14 +70,104 @@ def main():
         "--output-dir",
         type=str,
         default="data/processed_market",
-        help="Directory to save the processed CSV file with engineered features",
+        help="Directory to save the processed Parquet components",
+    )
+    parser_process.add_argument(
+        "--horizon",
+        type=int,
+        default=5,
+        help="Horizon for Triple Barrier labeling (e.g., 5 for 5h)",
+    )
+
+    # --- SUBCOMMAND: train ---
+    parser_train = subparsers.add_parser("train", help="Train a baseline model")
+    parser_train.add_argument(
+        "--input-dir",
+        type=str,
+        required=True,
+        help="Path to the directory containing processed Parquet components",
+    )
+    parser_train.add_argument(
+        "--target",
+        type=str,
+        default="Target_5h_TBM",
+        choices=["Target_5h_TBM", "LogRet_5h", "LogRet_12h", "LogRet_24h"],
+        help="The target column to use for labeling",
+    )
+    parser_train.add_argument(
+        "--split-date",
+        type=str,
+        default="2025-01-01",
+        help="Date to split train and test sets (YYYY-MM-DD)",
+    )
+    parser_train.add_argument(
+        "--output-model",
+        type=str,
+        default="src/models/baseline_rf.joblib",
+        help="Path to save the trained model artifacts",
+    )
+
+    # --- SUBCOMMAND: run ---
+    parser_exp = subparsers.add_parser(
+        "run", help="Run an experiment from a config file"
+    )
+    parser_exp.add_argument(
+        "--config",
+        type=str,
+        required=True,
+        help="Path to the YAML configuration file",
     )
 
     # execute the appropriate pipeline steps based on the command
     args = parser.parse_args()
 
-    # collect
-    if args.command in ["collect", "all"]:
+    # if no command provided, print help
+    if not args.command:
+        parser.print_help()
+        sys.exit(0)
+
+    # --- run ---
+    if args.command == "run":
+        config = load_config(args.config)
+        print(f"\n--- Starting Experiment: {config["project"]["name"]} ---")
+
+        # generate unique experiment name and directory
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        exp_name = f"{timestamp}_{config["project"]["name"]}"
+        experiment_dir = os.path.join("experiments", exp_name)
+        os.makedirs(experiment_dir, exist_ok=True)
+
+        # process
+        print("\n--- Step 1: Data Processing ---")
+        raw_input = config["data"]["raw_input"]
+        if not os.path.exists(raw_input):
+            print(f"Error: Raw input {raw_input} not found.")
+            sys.exit(1)
+
+        df = pd.read_csv(raw_input, parse_dates=["time"])
+        feature_dict = engineer_technical_features(
+            df, horizon=config["data"]["horizon"]
+        )
+
+        # save modular components as Parquet
+        processed_dir = config["data"]["processed_dir"]
+        DataModule.save_features(feature_dict, processed_dir)
+
+        # train
+        print("\n--- Step 2: Model Training ---")
+        run_baseline_training(
+            processed_dir,
+            config["model"]["target"],
+            config["data"]["split_date"],
+            experiment_dir,
+            config=config,
+        )
+        print(f"\n--- Experiment {config["project"]["name"]} Complete ---")
+        print(f"All artifacts are in: {experiment_dir}")
+        return
+
+    # --- collect ---
+    if args.command == "collect":
         print("\n--- Starting Data Collection ---")
 
         # convert input dates to UTC datetime objects
@@ -96,8 +196,8 @@ def main():
 
         print("--- Data Collection Step Complete ---")
 
-    # process
-    if args.command in ["process", "all"]:
+    # --- process ---
+    if args.command == "process":
         print("\n--- Starting Data Processing ---")
         print(
             f"Processing raw data from {args.input} and saving to {args.output_dir}..."
@@ -109,19 +209,24 @@ def main():
 
         print("Reading raw data and processing features...")
         df = pd.read_csv(args.input, parse_dates=["time"])
-        processed_df = engineer_technical_features(df)
+        feature_dict = engineer_technical_features(df, horizon=args.horizon)
 
-        # ensure output directory exists
-        os.makedirs(args.output_dir, exist_ok=True)
-
-        # construct output file path
-        base_name = os.path.basename(args.input)
-        output_path = os.path.join(args.output_dir, f"processed_{base_name}")
-
-        # save processed data to CSV
-        processed_df.to_csv(output_path, index=False)
-        print(f"Successfully saved processed data to {output_path}")
+        # Save modular components as Parquet
+        DataModule.save_features(feature_dict, args.output_dir)
+        print(f"Successfully saved processed components to {args.output_dir}")
         print("--- Data Processing Step Complete ---")
+
+    # --- train ---
+    if args.command == "train":
+        print("\n--- Starting Baseline Training ---")
+        if not os.path.exists(args.input_dir):
+            print(f"Error: Input directory {args.input_dir} does not exist.")
+            sys.exit(1)
+
+        run_baseline_training(
+            args.input_dir, args.target, args.split_date, args.output_model
+        )
+        print("--- Training Step Complete ---")
 
 
 if __name__ == "__main__":

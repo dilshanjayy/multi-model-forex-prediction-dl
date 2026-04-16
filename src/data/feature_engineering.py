@@ -3,9 +3,62 @@ import pandas_ta as ta
 import numpy as np
 
 
-def engineer_technical_features(dataframe: pd.DataFrame) -> pd.DataFrame:
+def add_triple_barrier_labels(
+    df: pd.DataFrame, horizon: int = 5, multiplier: float = 1.0
+) -> pd.DataFrame:
     """
-    Adds technical indicators to the DataFrame.
+    Implements the Triple Barrier Method (TBM) using ATR.
+    Labels: 0 (Profit), 1 (Loss), 2 (Time-out)
+    """
+    # Ensure ATR column exists
+    atr_col = "ATRr_14"
+    if atr_col not in df.columns:
+        raise ValueError(f"Required column {atr_col} not found in DataFrame.")
+
+    labels = []
+    prices = df["Close"].values
+    atrs = df[atr_col].values
+
+    # Triple Barrier Race
+    for i in range(len(df)):
+        if i + horizon >= len(df) or np.isnan(atrs[i]):
+            labels.append(np.nan)
+            continue
+
+        entry_price = prices[i]
+        current_atr = atrs[i]
+
+        # Define barriers using ATR (Physical price distance)
+        upper_barrier = entry_price + (current_atr * multiplier)
+        lower_barrier = entry_price - (current_atr * multiplier)
+
+        # Look ahead 'horizon' periods
+        future_prices = prices[i + 1 : i + horizon + 1]
+
+        found = False
+        for p in future_prices:
+            if p >= upper_barrier:
+                labels.append(0)  # Profit hit
+                found = True
+                break
+            elif p <= lower_barrier:
+                labels.append(1)  # Loss hit
+                found = True
+                break
+
+        if not found:
+            labels.append(2)  # Time-out
+
+    # Dynamic column name for traceability
+    col_name = f"Target_{horizon}h_TBM"
+    df[col_name] = labels
+    return df.dropna()
+
+
+def engineer_technical_features(dataframe: pd.DataFrame, horizon: int = 5) -> dict:
+    """
+    Adds technical indicators and Triple Barrier labels to the DataFrame.
+    Returns a dictionary of DataFrames (features, targets).
     """
     df = dataframe.copy()
 
@@ -66,14 +119,28 @@ def engineer_technical_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     # remove redundant features based on correlation analysis
     df = purge_redundant_features(df)
 
-    # add multiple raw target horizons (e.g., 5, 12, 24 periods ahead)
-    # this saves the 'Fact' (raw return) instead of the 'Opinion' (class labels)
-    df = add_multi_horizon_targets(df, horizons=[5, 12, 24])
+    # add multi-horizon log returns for regression targets
+    # (optional, can be used for multi-task learning or as auxiliary features)
+    df = add_multi_horizon_log_returns(df, horizons=[5, 12, 24])
 
-    return df
+    # add triple barrier labels for the specified horizon (classification targets)
+    df = add_triple_barrier_labels(df, horizon=horizon)
+
+    # Split into Feature Store components
+    target_cols = [c for c in df.columns if "Target" in c or "LogRet" in c]
+    # Price columns can also be useful as metadata, but not as features
+    metadata_cols = ["time", "Open", "High", "Low", "Close", "Volume"]
+
+    feature_cols = [c for c in df.columns if c not in target_cols and c not in metadata_cols]
+
+    return {
+        "technical_features": df[feature_cols + ["time"]],
+        "targets": df[target_cols + ["time"]],
+        "metadata": df[metadata_cols]
+    }
 
 
-def add_multi_horizon_targets(
+def add_multi_horizon_log_returns(
     df: pd.DataFrame, horizons: list = [5, 12, 24]
 ) -> pd.DataFrame:
     """
@@ -82,7 +149,7 @@ def add_multi_horizon_targets(
     during training to avoid data leakage and allow for flexible tuning.
     """
     for h in horizons:
-        col_name = f"Target_{h}h_Return"
+        col_name = f"LogRet_{h}h"
         df[col_name] = np.log(df["Close"].shift(-h) / df["Close"])
 
     # drop the last rows where we don't have future values for the longest horizon

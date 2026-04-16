@@ -1,0 +1,28 @@
+# Baseline Random Forest Configuration
+# This file serves as the 'Recipe' for our baseline model.
+
+project:
+  name: "forex-baseline"
+  symbol: "EURUSD"
+  timeframe: "H1"
+
+data:
+  raw_input: "data/raw_market/EURUSD_H1_20200101_20260131.csv"
+  processed_dir: "data/processed_market"
+  horizon: 5
+  split_date: "2025-01-01"
+
+model:
+  type: "RandomForest"
+  target: "Target_5h_TBM"
+  params:
+    n_estimators: 100
+    max_depth: 10
+    random_state: 42
+    class_weight: "balanced"
+    n_jobs: -1
+
+backtest:
+  strategy: "TripleBarrier"
+  cash: 10000.0
+  commission: 0.001
