@@ -1,4 +1,3 @@
-import pandas as pd
 import os
 import argparse
 import sys
@@ -7,6 +6,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
 from backtesting import Backtest
+from src.data.data_module import DataModule
 from src.strategies.base_strategies import (
     NaiveFlipStrategy,
     MajorityVoteStrategy,
@@ -16,24 +16,28 @@ from src.strategies.base_strategies import (
 
 def run_backtest_session(
     model_path: str,
-    data_path: str,
+    processed_dir: str,
     split_date: str,
     strategy_name: str,
-    commission: float = 0.001,  # Research Standard (epsilon) 0.1%
+    commission: float = 0.0001,
     cash: float = 10000.0,
+    v_size: float = 0.1,
+    atr_multiplier: float = 1.0,
 ):
     """
     Generic runner for the 'Model Tournament'.
-    Loads data, selects strategy, and runs the Backtest.
+    Loads data via DataModule, selects strategy, and runs the Backtest.
     """
-    print("\n--- TOURNAMENT SESSION ---")
+    print("\n--- BACKTEST EXECUTION ---")
     print(f"Model: {os.path.basename(model_path)}")
     print(f"Strategy: {strategy_name}")
-    print(f"Fee (epsilon): {commission * 100}%")
+    print(f"Fee (epsilon): {commission / 0.0001:.1f} pips")
 
-    # 1. Load Data
-    df = pd.read_csv(data_path, parse_dates=["time"])
-    df.set_index("time", inplace=True)
+    # 1. Load Data via DataModule
+    print(f"Loading modular data from {processed_dir}...")
+    dm = DataModule(processed_dir)
+    # Join features and metadata (price) for the backtester
+    df = dm.prepare_dataset(components=["technical_features", "metadata"])
     df.sort_index(inplace=True)
 
     # 2. Filter for Test Period
@@ -60,16 +64,17 @@ def run_backtest_session(
         selected_strategy,
         cash=cash,
         commission=commission,
-        trade_on_close=True,
+        margin=0.02,
+        trade_on_close=False,
     )
 
-    stats = bt.run(model_path=model_path)
+    stats = bt.run(model_path=model_path, v_size=v_size, atr_multiplier=atr_multiplier)
     print("\n--- RESULTS ---")
     print(stats)
 
     # 5. Save Report
     report_name = (
-        f"src/evaluation/report_{strategy_name}_{os.path.basename(model_path)}.html"
+        f"experiments/report_{strategy_name}_{os.path.basename(model_path)}.html"
     )
     bt.plot(filename=report_name, open_browser=False)
     print(f"\nReport saved to: {report_name}")
@@ -78,36 +83,57 @@ def run_backtest_session(
 
 
 if __name__ == "__main__":
+    import yaml
+
     parser = argparse.ArgumentParser(description="Professional Model Backtester")
-    parser.add_argument("--model", type=str, default="src/models/baseline_rf.joblib")
+    parser.add_argument("--model", type=str, help="Path to the model.joblib artifact")
+    parser.add_argument("--config", type=str, help="Path to the experiment config.yaml")
     parser.add_argument(
-        "--data",
+        "--data-dir",
         type=str,
-        default="data/processed_market/processed_EURUSD_H1_20200101_20260131.csv",
+        help="Path to the directory containing processed Parquet components",
     )
-    parser.add_argument("--split-date", type=str, default="2025-01-01")
+    parser.add_argument("--split-date", type=str, help="Date to split train and test sets")
     parser.add_argument(
         "--strategy",
         type=str,
-        default="TripleBarrier",
+        help="Strategy name",
         choices=["NaiveFlip", "MajorityVote", "TripleBarrier"],
-    )
-    parser.add_argument(
-        "--epsilon",
-        type=float,
-        default=0.001,
-        help="Broker fee percentage (e.g., 0.001 for 0.1%)",
     )
 
     args = parser.parse_args()
 
-    if os.path.exists(args.model) and os.path.exists(args.data):
+    # Default values
+    model_path = args.model
+    data_dir = args.data_dir or "data/processed_market"
+    split_date = args.split_date or "2025-01-01"
+    strategy = args.strategy or "TripleBarrier"
+    epsilon = 0.0001
+    v_size = 10000.0
+    atr_mult = 3.0
+
+    # Override with config if provided
+    if args.config:
+        print(f"Loading parameters from config: {args.config}")
+        with open(args.config, "r") as f:
+            config = yaml.safe_load(f)
+            data_dir = config["data"].get("processed_dir", data_dir)
+            split_date = config["data"].get("split_date", split_date)
+            if "backtest" in config:
+                strategy = config["backtest"].get("strategy", strategy)
+                epsilon = config["backtest"].get("commission", epsilon)
+                v_size = config["backtest"].get("v_size", v_size)
+                atr_mult = config["backtest"].get("atr_multiplier", atr_mult)
+
+    if model_path and os.path.exists(model_path):
         run_backtest_session(
-            model_path=args.model,
-            data_path=args.data,
-            split_date=args.split_date,
-            strategy_name=args.strategy,
-            commission=args.epsilon,
+            model_path=model_path,
+            processed_dir=data_dir,
+            split_date=split_date,
+            strategy_name=strategy,
+            commission=epsilon,
+            v_size=v_size,
+            atr_multiplier=atr_mult,
         )
     else:
-        print("Required model or data files missing.")
+        print("Error: Model path is required and must exist. Use --model <path>")

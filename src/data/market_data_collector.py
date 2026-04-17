@@ -55,12 +55,19 @@ def save_market_data_to_csv(
 
         rates_df = pd.DataFrame(rates)
 
-        # IC Markets server returns time in EET, so we need to convert it to UTC
-        # convert time from seconds since epoch to datetime
+        # IC Markets server time is always exactly US/Eastern + 7 hours.
+        # This "NY+7" rule is the most robust way to handle the US DST shifts
+        # used by the broker to align with the 5:00 PM New York close.
         rates_df["time"] = pd.to_datetime(rates_df["time"], unit="s")
-        # localize to EET (MetaTrader5 server time) before converting to UTC
-        rates_df["time"] = rates_df["time"].dt.tz_localize("EET")
-        # convert to UTC for consistency
+        
+        # 1. Shift broker time back 7 hours to get the equivalent New York time
+        rates_df["time"] = rates_df["time"] - pd.Timedelta(hours=7)
+        
+        # 2. Localize as US/Eastern (which handles US DST perfectly)
+        # We use ambiguous='infer' to handle the "Fall Back" hour overlap safely
+        rates_df["time"] = rates_df["time"].dt.tz_localize("US/Eastern", ambiguous='infer')
+        
+        # 3. Convert to UTC for a consistent, session-accurate timeline
         rates_df["time"] = rates_df["time"].dt.tz_convert("UTC")
 
         # save to CSV

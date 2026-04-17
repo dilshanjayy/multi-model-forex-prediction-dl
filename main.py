@@ -8,9 +8,14 @@ import pandas as pd
 
 # import modular components
 from src.data.market_data_collector import save_market_data_to_csv
-from src.data.feature_engineering import engineer_technical_features
+from src.data.data_processor import (
+    generate_features,
+    generate_targets,
+    split_components,
+)
 from src.data.data_module import DataModule
 from src.models.baseline_trainer import run_baseline_training
+from src.evaluation.backtester import run_backtest_session
 
 
 def load_config(config_path):
@@ -107,6 +112,21 @@ def main():
         help="Path to save the trained model artifacts",
     )
 
+    # --- SUBCOMMAND: backtest ---
+    parser_bt = subparsers.add_parser("backtest", help="Backtest a trained model")
+    parser_bt.add_argument(
+        "--model",
+        type=str,
+        required=True,
+        help="Path to the model.joblib artifact",
+    )
+    parser_bt.add_argument(
+        "--config",
+        type=str,
+        required=True,
+        help="Path to the experiment config.yaml",
+    )
+
     # --- SUBCOMMAND: run ---
     parser_exp = subparsers.add_parser(
         "run", help="Run an experiment from a config file"
@@ -145,11 +165,17 @@ def main():
             sys.exit(1)
 
         df = pd.read_csv(raw_input, parse_dates=["time"])
-        feature_dict = engineer_technical_features(
-            df, horizon=config["data"]["horizon"]
+        
+        # Modular Pipeline
+        enriched_df = generate_features(df)
+        final_df = generate_targets(
+            enriched_df, 
+            horizon=config['data']['horizon'],
+            atr_multiplier=config['data'].get('atr_multiplier', 3.0)
         )
-
-        # save modular components as Parquet
+        feature_dict = split_components(final_df)
+        
+        # Save modular components as Parquet
         processed_dir = config["data"]["processed_dir"]
         DataModule.save_features(feature_dict, processed_dir)
 
@@ -162,7 +188,22 @@ def main():
             experiment_dir,
             config=config,
         )
-        print(f"\n--- Experiment {config["project"]["name"]} Complete ---")
+
+        # backtest
+        if "backtest" in config:
+            print("\n--- Step 3: Backtesting ---")
+            run_backtest_session(
+                model_path=os.path.join(experiment_dir, "model.joblib"),
+                processed_dir=processed_dir,
+                split_date=config["data"]["split_date"],
+                strategy_name=config["backtest"]["strategy"],
+                commission=config["backtest"].get("commission", 0.0001),
+                cash=config["backtest"].get("cash", 10000.0),
+                v_size=config["backtest"].get("v_size", 0.1),
+                atr_multiplier=config["backtest"].get("atr_multiplier", 1.0)
+            )
+
+        print(f"\n--- Experiment {config['project']['name']} Complete ---")
         print(f"All artifacts are in: {experiment_dir}")
         return
 
@@ -209,7 +250,11 @@ def main():
 
         print("Reading raw data and processing features...")
         df = pd.read_csv(args.input, parse_dates=["time"])
-        feature_dict = engineer_technical_features(df, horizon=args.horizon)
+        
+        # Modular Pipeline
+        enriched_df = generate_features(df)
+        final_df = generate_targets(enriched_df, horizon=args.horizon)
+        feature_dict = split_components(final_df)
 
         # Save modular components as Parquet
         DataModule.save_features(feature_dict, args.output_dir)
@@ -227,6 +272,23 @@ def main():
             args.input_dir, args.target, args.split_date, args.output_model
         )
         print("--- Training Step Complete ---")
+
+    # --- backtest ---
+    if args.command == "backtest":
+        config = load_config(args.config)
+        print(f"\n--- Starting Standalone Backtest ---")
+        
+        run_backtest_session(
+            model_path=args.model,
+            processed_dir=config["data"].get("processed_dir", "data/processed_market"),
+            split_date=config["data"].get("split_date", "2025-01-01"),
+            strategy_name=config["backtest"].get("strategy", "TripleBarrier"),
+            commission=config["backtest"].get("commission", 0.0001),
+            cash=config["backtest"].get("cash", 10000.0),
+            v_size=config["backtest"].get("v_size", 0.1),
+            atr_multiplier=config["backtest"].get("atr_multiplier", 1.0)
+        )
+        print("--- Backtest Step Complete ---")
 
 
 if __name__ == "__main__":

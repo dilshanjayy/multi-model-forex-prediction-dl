@@ -36,26 +36,11 @@ def run_baseline_training(
         print("Error: Split date results in empty train or test set.")
         return
 
-    # 2. Labeling Logic
-    if target_col.endswith("_TBM"):
-        print(f"Using pre-computed Triple Barrier Labels from {target_col}...")
-        train_df["Target"] = train_df[target_col]
-        test_df["Target"] = test_df[target_col]
-        lower_threshold, upper_threshold = 0, 0
-    else:
-        print(f"Calculating quantile thresholds on training data for {target_col}...")
-        lower_threshold = train_df[target_col].quantile(0.30)
-        upper_threshold = train_df[target_col].quantile(0.65)
-
-        def apply_labels(data):
-            conditions = [
-                data[target_col] > upper_threshold,
-                data[target_col] < lower_threshold,
-            ]
-            return np.select(conditions, [0, 1], default=2)
-
-        train_df["Target"] = apply_labels(train_df)
-        test_df["Target"] = apply_labels(test_df)
+    # 2. Target Identification
+    print(f"Loading target labels from '{target_col}' column...")
+    train_df["Target"] = train_df[target_col]
+    test_df["Target"] = test_df[target_col]
+    lower_threshold, upper_threshold = 0, 0
 
     # 3. Prepare Features
     target_cols = [c for c in df.columns if "Target" in c or "LogRet" in c]
@@ -65,8 +50,6 @@ def run_baseline_training(
         "Low",
         "Close",
         "Volume",
-        "Vol",
-        "Triple_Barrier_Label",
     ]
     feature_cols = [
         c
@@ -106,12 +89,12 @@ def run_baseline_training(
     # 7. Save Artifacts
     os.makedirs(experiment_dir, exist_ok=True)
 
-    # Bundle metadata with model
-    horizon_match = re.search(r"(\d+)h", target_col)
-    horizon = int(horizon_match.group(1)) if horizon_match else 1
+    # Get horizon from config
+    horizon = config["data"].get("horizon", 1) if config else 1
 
     # Save standardized artifact for inference
     inference_artifacts = {
+        "model": model_wrapper,
         "model_type": model_type,
         "model_params": model_params,
         "scaler": scaler,
@@ -124,8 +107,8 @@ def run_baseline_training(
     # Save Model Weights/State using its own interface
     model_wrapper.save(os.path.join(experiment_dir, "model_state.joblib"))
 
-    # Save Metadata separately
-    joblib.dump(inference_artifacts, os.path.join(experiment_dir, "metadata.joblib"))
+    # Save unified model.joblib for inference and backtesting
+    joblib.dump(inference_artifacts, os.path.join(experiment_dir, "model.joblib"))
 
     # Save Metrics
     metrics = {
