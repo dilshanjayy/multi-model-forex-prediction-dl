@@ -1,6 +1,8 @@
 import os
 import argparse
 import sys
+import json
+import yaml
 
 # Add project root to path so 'src' can be imported
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -17,21 +19,27 @@ from src.strategies.base_strategies import (
 def run_backtest_session(
     model_path: str,
     processed_dir: str,
-    split_date: str,
+    start_date: str,
+    end_date: str | None,
     strategy_name: str,
     commission: float = 0.0001,
     cash: float = 10000.0,
     v_size: float = 0.1,
     atr_multiplier: float = 1.0,
+    margin: float = 0.02,
+    conf_threshold: float = 0.40,
+    output_dir: str | None = None,
+    suffix: str = "",
 ):
     """
     Generic runner for the 'Model Tournament'.
     Loads data via DataModule, selects strategy, and runs the Backtest.
     """
-    print("\n--- BACKTEST EXECUTION ---")
+    print(f"\n--- BACKTEST EXECUTION ({suffix if suffix else 'Custom'}) ---")
     print(f"Model: {os.path.basename(model_path)}")
     print(f"Strategy: {strategy_name}")
     print(f"Fee (epsilon): {commission / 0.0001:.1f} pips")
+    print(f"Confidence Threshold: {conf_threshold:.2f}")
 
     # 1. Load Data via DataModule
     print(f"Loading modular data from {processed_dir}...")
@@ -41,7 +49,12 @@ def run_backtest_session(
     df.sort_index(inplace=True)
 
     # 2. Filter for Test Period
-    test_df = df[df.index >= split_date].copy()
+    print(f"Filtering data from {start_date} to {end_date if end_date else 'End'}...")
+    if end_date:
+        test_df = df[(df.index >= start_date) & (df.index < end_date)].copy()
+    else:
+        test_df = df[df.index >= start_date].copy()
+
     if len(test_df) == 0:
         print("Error: No test data found.")
         return
@@ -64,20 +77,39 @@ def run_backtest_session(
         selected_strategy,
         cash=cash,
         commission=commission,
-        margin=0.02,
+        margin=margin,
         trade_on_close=False,
     )
 
-    stats = bt.run(model_path=model_path, v_size=v_size, atr_multiplier=atr_multiplier)
+    stats = bt.run(
+        model_path=model_path,
+        v_size=v_size,
+        atr_multiplier=atr_multiplier,
+        conf_threshold=conf_threshold
+    )
+
     print("\n--- RESULTS ---")
     print(stats)
 
-    # 5. Save Report
-    report_name = (
-        f"experiments/report_{strategy_name}_{os.path.basename(model_path)}.html"
-    )
-    bt.plot(filename=report_name, open_browser=False)
-    print(f"\nReport saved to: {report_name}")
+    # 5. Save Results
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Save HTML Report
+        report_path = os.path.join(output_dir, f"report_{strategy_name}_{suffix}.html")
+        bt.plot(filename=report_path, open_browser=False)
+
+        # Save Numeric Stats to JSON (clean strings for serializability)
+        clean_stats = {
+            str(k): str(v) if not isinstance(v, (int, float, list, dict)) else v
+            for k, v in stats.items()
+            if isinstance(k, str) and not k.startswith("_")
+        }
+        stats_path = os.path.join(output_dir, f"stats_{suffix.lower()}.json")
+        with open(stats_path, "w") as f:
+            json.dump(clean_stats, f, indent=4)
+
+        print(f"Artifacts saved: {report_path} and {stats_path}")
 
     return stats
 
@@ -93,7 +125,10 @@ if __name__ == "__main__":
         type=str,
         help="Path to the directory containing processed Parquet components",
     )
-    parser.add_argument("--split-date", type=str, help="Date to split train and test sets")
+    parser.add_argument("--start-date", type=str, help="Start date for the backtest")
+    parser.add_argument(
+        "--end-date", type=str, help="End date for the backtest (optional)"
+    )
     parser.add_argument(
         "--strategy",
         type=str,
@@ -106,30 +141,38 @@ if __name__ == "__main__":
     # Default values
     model_path = args.model
     data_dir = args.data_dir or "data/processed_market"
-    split_date = args.split_date or "2025-01-01"
+    start_date = args.start_date or "2024-01-01"
+    end_date = args.end_date or "2025-01-01"
     strategy = args.strategy or "TripleBarrier"
     epsilon = 0.0001
     v_size = 10000.0
     atr_mult = 3.0
+    margin = 0.02
 
     # Override with config if provided
     if args.config:
         print(f"Loading parameters from config: {args.config}")
         with open(args.config, "r") as f:
             config = yaml.safe_load(f)
-            data_dir = config["data"].get("processed_dir", data_dir)
-            split_date = config["data"].get("split_date", split_date)
+            if "data" in config:
+                data_dir = config["data"].get("processed_dir", data_dir)
+                # Only use config dates if CLI didn't provide them
+                if not args.start_date:
+                    start_date = config["data"].get("val_split_date", start_date)
+                if not args.end_date:
+                    end_date = config["data"].get("test_split_date", end_date)
             if "backtest" in config:
                 strategy = config["backtest"].get("strategy", strategy)
                 epsilon = config["backtest"].get("commission", epsilon)
                 v_size = config["backtest"].get("v_size", v_size)
                 atr_mult = config["backtest"].get("atr_multiplier", atr_mult)
-
+                margin = config["backtest"].get("margin", margin)
     if model_path and os.path.exists(model_path):
         run_backtest_session(
             model_path=model_path,
             processed_dir=data_dir,
-            split_date=split_date,
+            start_date=start_date,
+            end_date=end_date,
             strategy_name=strategy,
             commission=epsilon,
             v_size=v_size,

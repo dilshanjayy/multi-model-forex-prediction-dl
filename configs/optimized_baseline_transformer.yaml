@@ -1,0 +1,35 @@
+# Optimized Transformer Configuration
+project:
+    name: "forex-transformer-optimized"
+    symbol: "EURUSD"
+    timeframe: "H1"
+
+data:
+    raw_input: "data/raw_market/EURUSD_H1_20210501_20260331.csv"
+    processed_dir: "data/processed_market"
+    horizons: [5, 12, 24]
+    atr_multipliers: [1.0, 2.0, 3.0]
+    val_split_date: "2024-01-01"
+    test_split_date: "2025-01-01"
+    lookback: 60
+
+model:
+    type: "Transformer"
+    target: "Target_24h_1.0x_TBM"
+    batch_size: 64
+    params:
+        epochs: 50
+        learning_rate: 0.00032638452712183325
+        d_model: 64
+        nhead: 8
+        num_layers: 1
+        dropout: 0.1
+
+backtest:
+    strategy: "TripleBarrier"
+    cash: 10000.0
+    commission: 0.0001
+    v_size: 10000
+    atr_multiplier: 4.5
+    margin: 0.02
+    conf_threshold: 0.44999999999999996

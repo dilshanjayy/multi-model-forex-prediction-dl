@@ -16,6 +16,7 @@ from src.data.data_processor import (
 from src.data.data_module import DataModule
 from src.models.baseline_trainer import run_baseline_training
 from src.evaluation.backtester import run_backtest_session
+from src.evaluation.optimizer import run_optimization_study
 
 
 def load_config(config_path):
@@ -78,10 +79,18 @@ def main():
         help="Directory to save the processed Parquet components",
     )
     parser_process.add_argument(
-        "--horizon",
+        "--horizons",
         type=int,
-        default=5,
-        help="Horizon for Triple Barrier labeling (e.g., 5 for 5h)",
+        nargs="+",
+        default=[5, 12, 24],
+        help="List of horizons for Triple Barrier labeling (e.g., 5 12 24)",
+    )
+    parser_process.add_argument(
+        "--atr-multipliers",
+        type=float,
+        nargs="+",
+        default=[1.0, 2.0, 3.0],
+        help="List of ATR multipliers for Triple Barrier labeling (e.g., 1.0 2.0 3.0)",
     )
 
     # --- SUBCOMMAND: train ---
@@ -100,10 +109,16 @@ def main():
         help="The target column to use for labeling",
     )
     parser_train.add_argument(
-        "--split-date",
+        "--val-split-date",
+        type=str,
+        default="2024-01-01",
+        help="Date to split train and val sets (YYYY-MM-DD)",
+    )
+    parser_train.add_argument(
+        "--test-split-date",
         type=str,
         default="2025-01-01",
-        help="Date to split train and test sets (YYYY-MM-DD)",
+        help="Date to split val and test sets (YYYY-MM-DD)",
     )
     parser_train.add_argument(
         "--output-model",
@@ -127,6 +142,23 @@ def main():
         help="Path to the experiment config.yaml",
     )
 
+    # --- SUBCOMMAND: optimize ---
+    parser_opt = subparsers.add_parser(
+        "optimize", help="Run hyperparameter optimization via Optuna"
+    )
+    parser_opt.add_argument(
+        "--config",
+        type=str,
+        required=True,
+        help="Path to the YAML configuration file",
+    )
+    parser_opt.add_argument(
+        "--trials",
+        type=int,
+        default=50,
+        help="Number of Optuna trials to run",
+    )
+
     # --- SUBCOMMAND: run ---
     parser_exp = subparsers.add_parser(
         "run", help="Run an experiment from a config file"
@@ -146,14 +178,18 @@ def main():
         parser.print_help()
         sys.exit(0)
 
+    # --- optimize ---
+    if args.command == "optimize":
+        run_optimization_study(args.config, n_trials=args.trials)
+
     # --- run ---
     if args.command == "run":
         config = load_config(args.config)
-        print(f"\n--- Starting Experiment: {config["project"]["name"]} ---")
+        print(f"\n--- Starting Experiment: {config['project']['name']} ---")
 
         # generate unique experiment name and directory
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        exp_name = f"{timestamp}_{config["project"]["name"]}"
+        exp_name = f"{timestamp}_{config['project']['name']}"
         experiment_dir = os.path.join("experiments", exp_name)
         os.makedirs(experiment_dir, exist_ok=True)
 
@@ -165,16 +201,16 @@ def main():
             sys.exit(1)
 
         df = pd.read_csv(raw_input, parse_dates=["time"])
-        
+
         # Modular Pipeline
         enriched_df = generate_features(df)
         final_df = generate_targets(
-            enriched_df, 
-            horizon=config['data']['horizon'],
-            atr_multiplier=config['data'].get('atr_multiplier', 3.0)
+            enriched_df,
+            horizons=config["data"].get("horizons", [5, 12, 24]),
+            atr_multipliers=config["data"].get("atr_multipliers", [1.0, 2.0, 3.0]),
         )
         feature_dict = split_components(final_df)
-        
+
         # Save modular components as Parquet
         processed_dir = config["data"]["processed_dir"]
         DataModule.save_features(feature_dict, processed_dir)
@@ -184,24 +220,30 @@ def main():
         run_baseline_training(
             processed_dir,
             config["model"]["target"],
-            config["data"]["split_date"],
+            config["data"].get("val_split_date", "2024-01-01"),
+            config["data"].get("test_split_date", "2025-01-01"),
             experiment_dir,
             config=config,
         )
 
         # backtest
         if "backtest" in config:
-            print("\n--- Step 3: Backtesting ---")
+            print("\n--- Step 3: Backtesting (Validation Set) ---")
             run_backtest_session(
                 model_path=os.path.join(experiment_dir, "model.joblib"),
                 processed_dir=processed_dir,
-                split_date=config["data"]["split_date"],
+                start_date=config["data"].get("val_split_date", "2024-01-01"),
+                end_date=config["data"].get("test_split_date", "2025-01-01"),
                 strategy_name=config["backtest"]["strategy"],
                 commission=config["backtest"].get("commission", 0.0001),
                 cash=config["backtest"].get("cash", 10000.0),
                 v_size=config["backtest"].get("v_size", 0.1),
-                atr_multiplier=config["backtest"].get("atr_multiplier", 1.0)
-            )
+                atr_multiplier=config["backtest"].get("atr_multiplier", 1.0),
+                margin=config["backtest"].get("margin", 0.02),
+                conf_threshold=config["backtest"].get("conf_threshold", 0.40),
+                output_dir=experiment_dir,
+                suffix="Validation"
+                )
 
         print(f"\n--- Experiment {config['project']['name']} Complete ---")
         print(f"All artifacts are in: {experiment_dir}")
@@ -250,10 +292,14 @@ def main():
 
         print("Reading raw data and processing features...")
         df = pd.read_csv(args.input, parse_dates=["time"])
-        
+
         # Modular Pipeline
         enriched_df = generate_features(df)
-        final_df = generate_targets(enriched_df, horizon=args.horizon)
+        final_df = generate_targets(
+            enriched_df,
+            horizons=args.horizons,
+            atr_multipliers=args.atr_multipliers,
+        )
         feature_dict = split_components(final_df)
 
         # Save modular components as Parquet
@@ -269,26 +315,38 @@ def main():
             sys.exit(1)
 
         run_baseline_training(
-            args.input_dir, args.target, args.split_date, args.output_model
+            args.input_dir,
+            args.target,
+            args.val_split_date,
+            args.test_split_date,
+            args.output_model,
         )
         print("--- Training Step Complete ---")
 
     # --- backtest ---
     if args.command == "backtest":
         config = load_config(args.config)
-        print(f"\n--- Starting Standalone Backtest ---")
-        
+        print("\n--- Starting Standalone Backtest (Test Set) ---")
+
+        # Save results in the same directory as the model
+        output_dir = os.path.dirname(args.model)
+
         run_backtest_session(
             model_path=args.model,
             processed_dir=config["data"].get("processed_dir", "data/processed_market"),
-            split_date=config["data"].get("split_date", "2025-01-01"),
+            start_date=config["data"].get("test_split_date", "2025-01-01"),
+            end_date=None,  # Run until the end of available data
             strategy_name=config["backtest"].get("strategy", "TripleBarrier"),
             commission=config["backtest"].get("commission", 0.0001),
             cash=config["backtest"].get("cash", 10000.0),
             v_size=config["backtest"].get("v_size", 0.1),
-            atr_multiplier=config["backtest"].get("atr_multiplier", 1.0)
-        )
-        print("--- Backtest Step Complete ---")
+            atr_multiplier=config["backtest"].get("atr_multiplier", 1.0),
+            margin=config["backtest"].get("margin", 0.02),
+            conf_threshold=config["backtest"].get("conf_threshold", 0.40),
+            output_dir=output_dir,
+            suffix="TestSet_Final"
+            )
+        print(f"--- Backtest Step Complete. Results saved to: {output_dir} ---")
 
 
 if __name__ == "__main__":

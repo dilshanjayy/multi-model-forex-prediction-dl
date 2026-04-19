@@ -3,6 +3,7 @@ import numpy as np
 from typing import Any, Dict
 from sklearn.ensemble import RandomForestClassifier
 from src.models.base_model import BaseModel
+import inspect
 
 class RFModel(BaseModel):
     """
@@ -10,7 +11,12 @@ class RFModel(BaseModel):
     """
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
-        self.model = RandomForestClassifier(**self.config)
+        
+        # Filter config to only valid RandomForestClassifier kwargs to prevent crashes
+        valid_args = inspect.signature(RandomForestClassifier).parameters
+        rf_config = {k: v for k, v in self.config.items() if k in valid_args}
+        
+        self.model = RandomForestClassifier(**rf_config)
 
     def train(self, X_train: np.ndarray, y_train: np.ndarray):
         print(f"Training RandomForest with params: {self.config}")

@@ -1,0 +1,40 @@
+backtest:
+  atr_multiplier: 4.5
+  cash: 10000.0
+  commission: 0.0001
+  conf_threshold: 0.44999999999999996
+  margin: 0.02
+  strategy: TripleBarrier
+  v_size: 10000
+data:
+  atr_multipliers:
+  - 1.0
+  - 2.0
+  - 3.0
+  horizons:
+  - 5
+  - 12
+  - 24
+  lookback: 60
+  processed_dir: data/processed_market
+  raw_input: data/raw_market/EURUSD_H1_20210501_20260331.csv
+  test_split_date: '2025-01-01'
+  val_split_date: '2024-01-01'
+model:
+  batch_size: 64
+  params:
+    batch_size: 64
+    d_model: 64
+    dropout: 0.1
+    epochs: 50
+    input_dim: 23
+    learning_rate: 0.00032638452712183325
+    lookback: 60
+    nhead: 8
+    num_layers: 1
+  target: Target_24h_1.0x_TBM
+  type: Transformer
+project:
+  name: forex-transformer-optimized
+  symbol: EURUSD
+  timeframe: H1

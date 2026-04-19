@@ -1,19 +1,26 @@
 # type: ignore
-import MetaTrader5 as mt5
+try:
+    import MetaTrader5 as mt5
+except ImportError:
+    mt5 = None
+
 from datetime import datetime
 import pandas as pd
 import os
 
 # map MetaTrader5 timeframes to human-readable labels for file naming
-TIMEFRAME_ENUMS = {
-    "M1": mt5.TIMEFRAME_M1,
-    "M5": mt5.TIMEFRAME_M5,
-    "M15": mt5.TIMEFRAME_M15,
-    "M30": mt5.TIMEFRAME_M30,
-    "H1": mt5.TIMEFRAME_H1,
-    "H4": mt5.TIMEFRAME_H4,
-    "D1": mt5.TIMEFRAME_D1,
-}
+if mt5:
+    TIMEFRAME_ENUMS = {
+        "M1": mt5.TIMEFRAME_M1,
+        "M5": mt5.TIMEFRAME_M5,
+        "M15": mt5.TIMEFRAME_M15,
+        "M30": mt5.TIMEFRAME_M30,
+        "H1": mt5.TIMEFRAME_H1,
+        "H4": mt5.TIMEFRAME_H4,
+        "D1": mt5.TIMEFRAME_D1,
+    }
+else:
+    TIMEFRAME_ENUMS = {}
 
 
 def save_market_data_to_csv(
@@ -25,6 +32,9 @@ def save_market_data_to_csv(
     """
     Fetches market data from MetaTrader5 and saves it to a CSV file.
     """
+    if mt5 is None:
+        print("Error: MetaTrader5 is not installed or not supported on this OS (Windows only).")
+        return None
 
     target_dir = "data/raw_market"
     os.makedirs(target_dir, exist_ok=True)

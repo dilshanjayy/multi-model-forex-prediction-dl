@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 import os
 import joblib
 import json
@@ -15,7 +14,8 @@ from src.models.model_factory import ModelFactory
 def run_baseline_training(
     processed_dir: str,
     target_col: str,
-    split_date: str,
+    val_split_date: str,
+    test_split_date: str,
     experiment_dir: str,
     config: dict | None = None,
 ):
@@ -28,69 +28,110 @@ def run_baseline_training(
     df.sort_index(inplace=True)
 
     # 1. Temporal Split
-    print(f"Splitting data at {split_date}...")
-    train_df = df[df.index < split_date].copy()
-    test_df = df[df.index >= split_date].copy()
+    print(
+        f"Splitting data into Train (< {val_split_date}), Val ({val_split_date} to {test_split_date}), and Test (>= {test_split_date})..."
+    )
+    train_df = df[df.index < val_split_date].copy()
+    val_df = df[(df.index >= val_split_date) & (df.index < test_split_date)].copy()
+    test_df = df[df.index >= test_split_date].copy()
 
-    if len(train_df) == 0 or len(test_df) == 0:
-        print("Error: Split date results in empty train or test set.")
+    if len(train_df) == 0 or len(val_df) == 0 or len(test_df) == 0:
+        print("Error: Split dates result in empty train, val, or test set.")
         return
 
     # 2. Target Identification
     print(f"Loading target labels from '{target_col}' column...")
     train_df["Target"] = train_df[target_col]
+    val_df["Target"] = val_df[target_col]
     test_df["Target"] = test_df[target_col]
     lower_threshold, upper_threshold = 0, 0
 
     # 3. Prepare Features
     target_cols = [c for c in df.columns if "Target" in c or "LogRet" in c]
+    # Explicitly exclude metadata and time-based columns
     exclude_cols = [
-        "Open",
-        "High",
-        "Low",
-        "Close",
-        "Volume",
+        "Open", "High", "Low", "Close", "Volume", 
+        "open", "high", "low", "close", "tick_volume", 
+        "time", "spread"
     ]
     feature_cols = [
         c
         for c in df.columns
         if c not in target_cols and c not in exclude_cols and c != "Target"
     ]
+    feature_cols.sort() # Ensure deterministic order for scaler synchronization
 
     X_train = train_df[feature_cols]
     y_train = train_df["Target"].to_numpy()
-    X_test = test_df[feature_cols]
-    y_test = test_df["Target"].to_numpy()
+    X_val = val_df[feature_cols]
+    y_val = val_df["Target"].to_numpy()
 
     # 4. Feature Scaling
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
+    X_val_scaled = scaler.transform(X_val)
 
     # 5. Model Instantiation & Training
     model_type = config["model"]["type"] if config else "RandomForest"
     model_params = config["model"]["params"] if config else {}
+    
+    # Add input_dim and sequences configs for DL models
+    model_params["input_dim"] = len(feature_cols)
+    if config:
+        model_params["lookback"] = config.get("data", {}).get("lookback", 60)
+        model_params["batch_size"] = config.get("model", {}).get("batch_size", 64)
 
     # Use Factory to get model
     model_wrapper = ModelFactory.get_model(model_type, model_params)
-    model_wrapper.train(X_train_scaled, y_train)
+    
+    # CHECK: Is this a Deep Learning (PyTorch) model?
+    from src.models.base_torch_model import PyTorchBaseModel
+    from src.data.window_generator import TimeSeriesWindowGenerator
+    
+    if isinstance(model_wrapper, PyTorchBaseModel):
+        print(f"\n--- Deep Learning Mode: Training {model_type} ---")
+        lookback = config["data"].get("lookback", 60)
+        batch_size = config["model"].get("batch_size", 64)
+        
+        # 5a. Create Sequential DataLoaders
+        generator = TimeSeriesWindowGenerator(
+            lookback=lookback, 
+            batch_size=batch_size, 
+            feature_cols=list(feature_cols)
+        )
+        train_loader, val_loader, _ = generator.prepare_loaders(
+            train_df, val_df, train_df, # Third arg is dummy here
+            target_col="Target"
+        )
+        
+        # 5b. Train using PyTorch training loop
+        model_wrapper.train_model(train_loader, val_loader)
+        
+        # Final evaluation on Validation Set (Sequence Mode)
+        # For simplicity in evaluation report, we use numpy predictions
+        # but modern models usually stay in DataLoader mode.
+    else:
+        # Standard Tabular Training
+        model_wrapper.train(X_train_scaled, y_train)
 
-    # 6. Evaluation
-    y_pred = model_wrapper.predict(X_test_scaled)
-    acc = accuracy_score(y_test, y_pred)
+    # 6. Evaluation (Common Interface)
+    # We evaluate on the Validation set for the console report
+    y_val_pred = model_wrapper.predict(X_val_scaled)
+    acc = accuracy_score(y_val, y_val_pred)
     report = classification_report(
-        y_test,
-        y_pred,
+        y_val,
+        y_val_pred,
         target_names=["Up (0)", "Down (1)", "Deadband (2)"],
         output_dict=True,
     )
-    print(f"\nModel Evaluation (Test Set) - Accuracy: {acc:.4f}")
+    print(f"\nModel Evaluation (Validation Set) - Accuracy: {acc:.4f}")
 
     # 7. Save Artifacts
     os.makedirs(experiment_dir, exist_ok=True)
 
-    # Get horizon from config
-    horizon = config["data"].get("horizon", 1) if config else 1
+    # Get horizon from target column name
+    horizon_match = re.search(r"(\d+)h", target_col)
+    horizon = int(horizon_match.group(1)) if horizon_match else 1
 
     # Save standardized artifact for inference
     inference_artifacts = {

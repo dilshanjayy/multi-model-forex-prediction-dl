@@ -43,3 +43,8 @@ class BaseModel(ABC):
     def feature_importance(self) -> Dict[str, float]:
         """Returns a dictionary of feature importances if applicable."""
         pass
+
+    @property
+    def expects_sequences(self) -> bool:
+        """Returns True if the model requires 3D sequence data (Samples, Time, Features)."""
+        return False

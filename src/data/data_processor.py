@@ -50,8 +50,9 @@ def add_triple_barrier_labels(
             labels.append(2)  # Time-out
 
     # Final Labeling
-    df["Target"] = labels
-    return df.dropna()
+    col_name = f"Target_{horizon}h_{atr_multiplier}x_TBM"
+    df[col_name] = labels
+    return df
 
 
 def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
@@ -126,18 +127,23 @@ def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
 
 
 def generate_targets(
-    df: pd.DataFrame, horizon: int = 5, atr_multiplier: float = 3.0
+    df: pd.DataFrame, 
+    horizons: list = [5, 12, 24], 
+    atr_multipliers: list = [1.0, 2.0, 3.0]
 ) -> pd.DataFrame:
     """
     Adds raw future log returns and Triple Barrier labels to the DataFrame.
+    Generates a grid of targets for all combinations of horizons and multipliers.
     """
     # add multiple raw target horizons (e.g., 5, 12, 24 periods ahead)
-    df = add_multi_horizon_log_returns(df, horizons=[5, 12, 24])
+    df = add_multi_horizon_log_returns(df, horizons=horizons)
 
-    # add Triple Barrier Labeling for specified horizon
-    df = add_triple_barrier_labels(df, horizon=horizon, atr_multiplier=atr_multiplier)
+    # add Triple Barrier Labeling for all combinations
+    for h in horizons:
+        for m in atr_multipliers:
+            df = add_triple_barrier_labels(df, horizon=h, atr_multiplier=m)
 
-    return df
+    return df.dropna()
 
 
 def split_components(df: pd.DataFrame) -> dict:

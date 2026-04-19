@@ -1,5 +1,6 @@
 from typing import Any, Dict
 from src.models.rf_model import RFModel
+from src.models.transformer_model import TransformerModel
 
 class ModelFactory:
     """
@@ -8,10 +9,10 @@ class ModelFactory:
     """
     MODELS = {
         "RandomForest": RFModel,
+        "Transformer": TransformerModel,
         # Future additions:
         # "LSTM": LSTMModel,
         # "CNN": CNNModel,
-        # "Transformer": TransformerModel
     }
 
     @staticmethod

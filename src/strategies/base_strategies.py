@@ -1,4 +1,5 @@
 import joblib
+import numpy as np
 from typing import Any, List
 from collections import Counter
 from backtesting import Strategy
@@ -11,6 +12,7 @@ class MLBaseStrategy(Strategy):
     """
 
     model_path: str = ""
+    artifacts: Any = None
     feature_cols: List[str] = []
     scaler: Any = None
     model: Any = None
@@ -19,17 +21,22 @@ class MLBaseStrategy(Strategy):
     # Research Variables (Configurable)
     v_size: float = 0.1  # Volume (v) - Fraction of equity or fixed size
     atr_multiplier: float = 1.0
+    conf_threshold: float = 0.50
 
     def init(self):
         # Load the model artifacts once
-        if not self.model:
+        if self.artifacts is not None:
+            self.model = self.artifacts["model"]
+            self.scaler = self.artifacts["scaler"]
+            self.feature_cols = self.artifacts["feature_cols"]
+            self.horizon = self.artifacts.get("horizon", 1)
+        elif not self.model:
             artifacts = joblib.load(self.model_path)
             self.model = artifacts["model"]
             self.scaler = artifacts["scaler"]
             self.feature_cols = artifacts["feature_cols"]
             # Dynamically read the horizon from the model file!
             self.horizon = artifacts.get("horizon", 1)
-            print(f"Strategy linked to model with {self.horizon}h horizon.")
 
         if self.scaler is None or self.model is None:
             raise ValueError("Model or Scaler failed to load.")
@@ -46,6 +53,10 @@ class MLBaseStrategy(Strategy):
         self.scaled_features = self.scaler.transform(self.prepared_data)
 
         print(f"Running bulk inference on {len(self.scaled_features)} rows...")
+        
+        # Both Tabular and Deep Learning models expect the 2D scaled_features here.
+        # The PyTorchBaseModel internally converts the 2D array into 3D sliding windows
+        # and pads the warm-up period to ensure the output length matches the input length.
         self.all_predictions = self.model.predict(self.scaled_features)
         self.all_probas = self.model.predict_proba(self.scaled_features)
 
@@ -68,9 +79,6 @@ class TripleBarrierStrategy(MLBaseStrategy):
     3. Vertical Barrier (Time-out after self.horizon bars)
     """
 
-    # Confidence filter: Only trade if model is >50% sure
-    conf_threshold: float = 0.40
-
     def next(self):
         prediction, confidence = self.get_prediction()
 
@@ -87,25 +95,25 @@ class TripleBarrierStrategy(MLBaseStrategy):
         price = self.data.Close[-1]
 
         # 3. Signal-based Entry with Confidence Filter
+        # BARRIER-PURE: We only enter if we don't have a position.
+        # Once in a trade, we ignore signals and wait for barriers to hit.
+        if self.position:
+            return
+
         if (
             prediction == 0 and confidence >= self.conf_threshold
         ):  # Profit predicted (Up)
-            if not self.position.is_long:
-                self.position.close()  # Close any existing short
-                self.buy(
-                    size=self.v_size, tp=price + current_atr, sl=price - current_atr
-                )
+            self.buy(
+                size=self.v_size, tp=price + current_atr, sl=price - current_atr
+            )
         elif (
             prediction == 1 and confidence >= self.conf_threshold
         ):  # Loss predicted (Down)
-            if not self.position.is_short:
-                self.position.close()  # Close any existing long
-                self.sell(
-                    size=self.v_size, tp=price - current_atr, sl=price + current_atr
-                )
+            self.sell(
+                size=self.v_size, tp=price - current_atr, sl=price + current_atr
+            )
         elif prediction == 2:  # Neutral
-            # We "do nothing". We don't enter, and we don't close
-            # existing trades (they will hit TP/SL or Vertical Barrier).
+            # We "do nothing".
             pass
 
 
@@ -116,7 +124,7 @@ class NaiveFlipStrategy(MLBaseStrategy):
     """
 
     def next(self):
-        prediction = self.get_prediction()
+        prediction, _ = self.get_prediction()
 
         if prediction == 0:  # Up (Alpha=0)
             if not self.position.is_long:
@@ -143,7 +151,7 @@ class MajorityVoteStrategy(MLBaseStrategy):
         self.signal_history = []
 
     def next(self):
-        raw_prediction = self.get_prediction()
+        raw_prediction, _ = self.get_prediction()
 
         # Seeding & Rolling Window
         if not self.signal_history:
