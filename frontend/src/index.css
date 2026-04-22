@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+body {
+  @apply bg-[#06090f] text-[#c9d1d9] antialiased m-0 p-0 font-sans;
+}
+
+/* Base custom classes to match the theme */
+.metric-card {
+  @apply bg-[#0d1117] border border-[#30363d] p-4 rounded-md shadow-sm;
+}
+.metric-label {
+  @apply text-xs text-[#8b949e] uppercase tracking-wider mb-1;
+}
+.metric-value {
+  @apply text-2xl font-bold text-[#58a6ff];
+}
+
+.signal-up {
+  @apply text-[#3fb950] bg-[#3fb950]/10 border-l-4 border-[#3fb950] pl-4 py-2 rounded-r;
+}
+.signal-down {
+  @apply text-[#f85149] bg-[#f85149]/10 border-l-4 border-[#f85149] pl-4 py-2 rounded-r;
+}
+.signal-neutral {
+  @apply text-[#8b949e] bg-[#8b949e]/10 border-l-4 border-[#8b949e] pl-4 py-2 rounded-r;
+}
+
+input, select {
+  @apply bg-[#06090f] border border-[#30363d] text-white rounded p-2 focus:ring-1 focus:ring-[#58a6ff] focus:outline-none w-full;
+}
+button {
+  @apply cursor-pointer;
+}
+
+/* Custom Scrollbar for inner components */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #8b949e;
+}
+
+/* Industrial Utility Classes */
+.pane {
+  @apply border border-[#30363d] bg-[#0d1117] flex flex-col overflow-hidden;
+}
+.pane-header {
+  @apply px-3 py-1.5 border-b border-[#30363d] bg-[#161b22] text-[10px] font-bold text-[#8b949e] uppercase tracking-widest flex justify-between items-center;
+}
+.pane-content {
+  @apply p-3 flex-1 overflow-auto custom-scrollbar;
+}
+.value-mono {
+  @apply font-mono tracking-tighter;
+}
+.label-muted {
+  @apply text-[10px] text-[#8b949e] uppercase tracking-wider;
+}
+.btn-action {
+  @apply py-3 px-4 font-bold text-sm tracking-widest uppercase transition-all active:scale-95 disabled:opacity-30 disabled:grayscale;
+}

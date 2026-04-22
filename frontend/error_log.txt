@@ -1,0 +1,62 @@
+react-dom_client.js?v=64265ce2:14337 Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+content-script.js:22 Document already loaded, running initialization immediately
+content-script.js:4 Attempting to initialize AdUnit
+content-script.js:6 AdUnit initialized successfully
+(index):1 Access to fetch at 'http://localhost:8000/api/v1/explain/20260419_054219_forex-transformer-optimized' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+:8000/api/v1/explain/20260419_054219_forex-transformer-optimized:1  Failed to load resource: net::ERR_FAILED
+ExplainabilityWidget.jsx:19 Error fetching explanation: TypeError: Failed to fetch
+    at ExplainabilityWidget.jsx:11:5
+    at Object.react_stack_bottom_frame (react-dom_client.js?v=64265ce2:12903:13)
+    at runWithFiberInDEV (react-dom_client.js?v=64265ce2:850:66)
+    at commitHookEffectListMount (react-dom_client.js?v=64265ce2:6616:153)
+    at commitHookPassiveMountEffects (react-dom_client.js?v=64265ce2:6651:55)
+    at commitPassiveMountOnFiber (react-dom_client.js?v=64265ce2:7617:22)
+    at recursivelyTraversePassiveMountEffects (react-dom_client.js?v=64265ce2:7605:5)
+    at commitPassiveMountOnFiber (react-dom_client.js?v=64265ce2:7671:14)
+    at recursivelyTraversePassiveMountEffects (react-dom_client.js?v=64265ce2:7605:5)
+    at commitPassiveMountOnFiber (react-dom_client.js?v=64265ce2:7671:14)
+(anonymous) @ ExplainabilityWidget.jsx:19
+(index):1 Access to fetch at 'http://localhost:8000/api/v1/explain/20260419_054219_forex-transformer-optimized' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+:8000/api/v1/explain/20260419_054219_forex-transformer-optimized:1  Failed to load resource: net::ERR_FAILED
+ExplainabilityWidget.jsx:19 Error fetching explanation: TypeError: Failed to fetch
+    at ExplainabilityWidget.jsx:11:5
+    at Object.react_stack_bottom_frame (react-dom_client.js?v=64265ce2:12903:13)
+    at runWithFiberInDEV (react-dom_client.js?v=64265ce2:850:66)
+    at commitHookEffectListMount (react-dom_client.js?v=64265ce2:6616:153)
+    at commitHookPassiveMountEffects (react-dom_client.js?v=64265ce2:6651:55)
+    at reconnectPassiveEffects (react-dom_client.js?v=64265ce2:7700:6)
+    at recursivelyTraverseReconnectPassiveEffects (react-dom_client.js?v=64265ce2:7687:5)
+    at reconnectPassiveEffects (react-dom_client.js?v=64265ce2:7712:14)
+    at doubleInvokeEffectsOnFiber (react-dom_client.js?v=64265ce2:8923:125)
+    at runWithFiberInDEV (react-dom_client.js?v=64265ce2:850:66)
+(anonymous) @ ExplainabilityWidget.jsx:19
+:8000/api/v1/backtest/20260419_054219_forex-transformer-optimized:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+(index):1 Access to fetch at 'http://localhost:8000/api/v1/explain/20260419_054219_forex-transformer-optimized' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+:8000/api/v1/explain/20260419_054219_forex-transformer-optimized:1  Failed to load resource: net::ERR_FAILED
+ExplainabilityWidget.jsx:19 Error fetching explanation: TypeError: Failed to fetch
+    at ExplainabilityWidget.jsx:11:5
+    at Object.react_stack_bottom_frame (react-dom_client.js?v=64265ce2:12903:13)
+    at runWithFiberInDEV (react-dom_client.js?v=64265ce2:850:66)
+    at commitHookEffectListMount (react-dom_client.js?v=64265ce2:6616:153)
+    at commitHookPassiveMountEffects (react-dom_client.js?v=64265ce2:6651:55)
+    at commitPassiveMountOnFiber (react-dom_client.js?v=64265ce2:7617:22)
+    at recursivelyTraversePassiveMountEffects (react-dom_client.js?v=64265ce2:7605:5)
+    at commitPassiveMountOnFiber (react-dom_client.js?v=64265ce2:7671:14)
+    at recursivelyTraversePassiveMountEffects (react-dom_client.js?v=64265ce2:7605:5)
+    at commitPassiveMountOnFiber (react-dom_client.js?v=64265ce2:7671:14)
+(anonymous) @ ExplainabilityWidget.jsx:19
+(index):1 Access to fetch at 'http://localhost:8000/api/v1/explain/20260419_054219_forex-transformer-optimized' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+:8000/api/v1/explain/20260419_054219_forex-transformer-optimized:1  Failed to load resource: net::ERR_FAILED
+ExplainabilityWidget.jsx:19 Error fetching explanation: TypeError: Failed to fetch
+    at ExplainabilityWidget.jsx:11:5
+    at Object.react_stack_bottom_frame (react-dom_client.js?v=64265ce2:12903:13)
+    at runWithFiberInDEV (react-dom_client.js?v=64265ce2:850:66)
+    at commitHookEffectListMount (react-dom_client.js?v=64265ce2:6616:153)
+    at commitHookPassiveMountEffects (react-dom_client.js?v=64265ce2:6651:55)
+    at reconnectPassiveEffects (react-dom_client.js?v=64265ce2:7700:6)
+    at recursivelyTraverseReconnectPassiveEffects (react-dom_client.js?v=64265ce2:7687:5)
+    at reconnectPassiveEffects (react-dom_client.js?v=64265ce2:7712:14)
+    at doubleInvokeEffectsOnFiber (react-dom_client.js?v=64265ce2:8923:125)
+    at runWithFiberInDEV (react-dom_client.js?v=64265ce2:850:66)
+(anonymous) @ ExplainabilityWidget.jsx:19
+:8000/api/v1/backtest/20260419_054219_forex-transformer-optimized:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
