@@ -5,6 +5,8 @@ from typing import Dict, Any
 from src.models.base_torch_model import PyTorchBaseModel
 
 class PositionalEncoding(nn.Module):
+    pe: torch.Tensor
+
     def __init__(self, d_model: int, max_len: int = 5000):
         super().__init__()
         pe = torch.zeros(max_len, d_model)

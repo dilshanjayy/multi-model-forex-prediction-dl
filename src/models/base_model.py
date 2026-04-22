@@ -14,7 +14,7 @@ class BaseModel(ABC):
         self.model = None
 
     @abstractmethod
-    def train(self, X_train: np.ndarray, y_train: np.ndarray):
+    def fit(self, X_train: np.ndarray, y_train: np.ndarray):
         """Trains the model on the provided data."""
         pass
 
@@ -40,8 +40,8 @@ class BaseModel(ABC):
 
     @property
     @abstractmethod
-    def feature_importance(self) -> Dict[str, float]:
-        """Returns a dictionary of feature importances if applicable."""
+    def feature_importance(self) -> Any:
+        """Returns feature importances (either as a dict or a numpy array)."""
         pass
 
     @property

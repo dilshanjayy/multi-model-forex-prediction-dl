@@ -72,26 +72,29 @@ def run_baseline_training(
     X_val_scaled = scaler.transform(X_val)
 
     # 5. Model Instantiation & Training
-    model_type = config["model"]["type"] if config else "RandomForest"
-    model_params = config["model"]["params"] if config else {}
-    
+    model_config = config.get("model", {}) if config else {}
+    model_type = model_config.get("type", "RandomForest")
+    model_params = model_config.get("params", {})
+
     # Add input_dim and sequences configs for DL models
     model_params["input_dim"] = len(feature_cols)
     if config:
-        model_params["lookback"] = config.get("data", {}).get("lookback", 60)
-        model_params["batch_size"] = config.get("model", {}).get("batch_size", 64)
+        data_config = config.get("data", {})
+        model_params["lookback"] = data_config.get("lookback", 60)
+        model_params["batch_size"] = model_config.get("batch_size", 64)
 
     # Use Factory to get model
     model_wrapper = ModelFactory.get_model(model_type, model_params)
-    
+
     # CHECK: Is this a Deep Learning (PyTorch) model?
     from src.models.base_torch_model import PyTorchBaseModel
     from src.data.window_generator import TimeSeriesWindowGenerator
-    
+
     if isinstance(model_wrapper, PyTorchBaseModel):
         print(f"\n--- Deep Learning Mode: Training {model_type} ---")
-        lookback = config["data"].get("lookback", 60)
-        batch_size = config["model"].get("batch_size", 64)
+        # Extract values safely for Pylance
+        lookback = model_params.get("lookback", 60)
+        batch_size = model_params.get("batch_size", 64)
         
         # 5a. Create Sequential DataLoaders
         generator = TimeSeriesWindowGenerator(
@@ -112,7 +115,7 @@ def run_baseline_training(
         # but modern models usually stay in DataLoader mode.
     else:
         # Standard Tabular Training
-        model_wrapper.train(X_train_scaled, y_train)
+        model_wrapper.fit(X_train_scaled, y_train)
 
     # 6. Evaluation (Common Interface)
     # We evaluate on the Validation set for the console report

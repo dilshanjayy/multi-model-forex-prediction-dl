@@ -18,7 +18,7 @@ class RFModel(BaseModel):
         
         self.model = RandomForestClassifier(**rf_config)
 
-    def train(self, X_train: np.ndarray, y_train: np.ndarray):
+    def fit(self, X_train: np.ndarray, y_train: np.ndarray):
         print(f"Training RandomForest with params: {self.config}")
         self.model.fit(X_train, y_train)
 
@@ -37,7 +37,7 @@ class RFModel(BaseModel):
         print(f"Model loaded from {path}")
 
     @property
-    def feature_importance(self) -> Dict[str, float]:
-        if hasattr(self.model, 'feature_importances_'):
+    def feature_importance(self) -> Any:
+        if self.model is not None and hasattr(self.model, "feature_importances_"):
             return self.model.feature_importances_
         return {}

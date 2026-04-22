@@ -119,7 +119,7 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
             )
             model_wrapper.train_model(train_loader, val_loader)
         else:
-            model_wrapper.train(X_train_scaled, y_train)
+            model_wrapper.fit(X_train_scaled, y_train)
 
         # 6. BACKTEST
         artifacts = {
