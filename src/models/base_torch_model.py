@@ -20,8 +20,8 @@ class PyTorchBaseModel(BaseModel, nn.Module):
         self.to(self.device)
 
         # Training Parameters
-        self.epochs = config.get("epochs", 50)
-        self.lr = config.get("learning_rate", 1e-3)
+        self.epochs = int(config.get("epochs", 50))
+        self.lr = float(config.get("learning_rate", 1e-3))
         self.criterion = nn.CrossEntropyLoss()
         self.best_state = None  # To store best weights
 
@@ -63,7 +63,7 @@ class PyTorchBaseModel(BaseModel, nn.Module):
         self.criterion = nn.CrossEntropyLoss(weight=class_weights)
 
         # 2. Optimizer with optional L2 Regularization (Weight Decay)
-        wd = self.config.get("weight_decay", 0.0)
+        wd = float(self.config.get("weight_decay", 0.0))
         optimizer = optim.Adam(self.parameters(), lr=self.lr, weight_decay=wd)
         
         best_val_loss = float("inf")
