@@ -31,7 +31,7 @@ backtest:
     v_size: 10000.0
     atr_multiplier: 1.5
     margin: 0.02
-    conf_threshold: 0.55
+    conf_threshold: 0.50
 
 optimization:
     search_space:
