@@ -19,7 +19,7 @@ model:
     batch_size: 64
     params:
         epochs: 100
-        learning_rate: 0.001
+        learning_rate: 0.00001
         weight_decay: 1e-5
         cnn_filters_1: 32
         cnn_filters_2: 64
