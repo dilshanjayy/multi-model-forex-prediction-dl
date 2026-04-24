@@ -15,11 +15,11 @@ data:
 
 model:
     type: "Transformer"
-    target: "Target_24h_1.0x_TBM"
+    target: "Target_12h_2.0x_TBM"
     batch_size: 64
     params:
         epochs: 50
-        learning_rate: 0.00032638452712183325
+        learning_rate: 0.006497992975647266
         d_model: 64
         nhead: 8
         num_layers: 1
@@ -30,6 +30,6 @@ backtest:
     cash: 10000.0
     commission: 0.0001
     v_size: 10000
-    atr_multiplier: 4.5
+    atr_multiplier: 4.0
     margin: 0.02
-    conf_threshold: 0.44999999999999996
+    conf_threshold: 0.55

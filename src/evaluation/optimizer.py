@@ -3,6 +3,7 @@ import yaml
 import numpy as np
 import pandas as pd
 import optuna
+from typing import Any, Dict
 from sklearn.preprocessing import StandardScaler
 from backtesting import Backtest
 from src.data.data_module import DataModule
@@ -11,6 +12,10 @@ from src.strategies.base_strategies import TripleBarrierStrategy
 
 
 def run_optimization_study(config_path: str, n_trials: int = 50):
+    # Set seed once globally for the study (fast mode)
+    from src.utils.reproducibility import set_seed
+    set_seed(42, strict=False)
+
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
 
@@ -57,13 +62,17 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
     search_space = config.get("optimization", {}).get("search_space", {})
     
     def objective(trial):
+        # 0. Set Seed for Reproducibility
+        from src.utils.reproducibility import set_seed
+        set_seed(42)
+
         # 1. Hyperparameters for Data
         h = trial.suggest_categorical("horizon", horizons)
         m = trial.suggest_categorical("label_atr_multiplier", atr_multipliers)
         target_col = f"Target_{h}h_{m}x_TBM"
 
         # 2. Hyperparameters for Model
-        model_params = {"random_state": 42}
+        model_params: Dict[str, Any] = {"random_state": 42}
         
         if model_type == "RandomForest":
             est_range = search_space.get("n_estimators", [50, 300, 50])
@@ -78,6 +87,14 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
             model_params["nhead"] = trial.suggest_categorical("nhead", [4, 8])
             model_params["num_layers"] = trial.suggest_int("num_layers", 1, 3)
             model_params["dropout"] = trial.suggest_float("dropout", 0.1, 0.4, step=0.1)
+            model_params["learning_rate"] = trial.suggest_float("learning_rate", 1e-4, 1e-2, log=True)
+            model_params["epochs"] = config["model"]["params"].get("epochs", 50)
+            model_params["lookback"] = config["data"].get("lookback", 60)
+        
+        elif model_type == "LSTM":
+            model_params["hidden_dim"] = trial.suggest_categorical("hidden_dim", [32, 64, 128, 256])
+            model_params["num_layers"] = trial.suggest_int("num_layers", 1, 4)
+            model_params["dropout"] = trial.suggest_float("dropout", 0.1, 0.5, step=0.1)
             model_params["learning_rate"] = trial.suggest_float("learning_rate", 1e-4, 1e-2, log=True)
             model_params["epochs"] = config["model"]["params"].get("epochs", 50)
             model_params["lookback"] = config["data"].get("lookback", 60)
@@ -189,6 +206,11 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
     elif model_type == "Transformer":
         optimized_config["model"]["params"]["d_model"] = trial.params["d_model"]
         optimized_config["model"]["params"]["nhead"] = trial.params["nhead"]
+        optimized_config["model"]["params"]["num_layers"] = trial.params["num_layers"]
+        optimized_config["model"]["params"]["dropout"] = trial.params["dropout"]
+        optimized_config["model"]["params"]["learning_rate"] = trial.params["learning_rate"]
+    elif model_type == "LSTM":
+        optimized_config["model"]["params"]["hidden_dim"] = trial.params["hidden_dim"]
         optimized_config["model"]["params"]["num_layers"] = trial.params["num_layers"]
         optimized_config["model"]["params"]["dropout"] = trial.params["dropout"]
         optimized_config["model"]["params"]["learning_rate"] = trial.params["learning_rate"]

@@ -102,8 +102,8 @@ def run_baseline_training(
             batch_size=batch_size, 
             feature_cols=list(feature_cols)
         )
-        train_loader, val_loader, _ = generator.prepare_loaders(
-            train_df, val_df, train_df, # Third arg is dummy here
+        train_loader, val_loader, test_loader = generator.prepare_loaders(
+            train_df, val_df, test_df,
             target_col="Target"
         )
         
@@ -138,7 +138,6 @@ def run_baseline_training(
 
     # Save standardized artifact for inference
     inference_artifacts = {
-        "model": model_wrapper,
         "model_type": model_type,
         "model_params": model_params,
         "scaler": scaler,
@@ -148,10 +147,11 @@ def run_baseline_training(
         "thresholds": {"lower": lower_threshold, "upper": upper_threshold},
     }
 
-    # Save Model Weights/State using its own interface
-    model_wrapper.save(os.path.join(experiment_dir, "model_state.joblib"))
+    # Save Model Weights/State using its own interface (torch.save)
+    model_state_path = os.path.join(experiment_dir, "model_state.joblib")
+    model_wrapper.save(model_state_path)
 
-    # Save unified model.joblib for inference and backtesting
+    # Save unified model.joblib for metadata
     joblib.dump(inference_artifacts, os.path.join(experiment_dir, "model.joblib"))
 
     # Save Metrics

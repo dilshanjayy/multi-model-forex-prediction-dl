@@ -1,5 +1,6 @@
 import joblib
 import numpy as np
+import os
 from typing import Any, List
 from collections import Counter
 from backtesting import Strategy
@@ -24,19 +25,35 @@ class MLBaseStrategy(Strategy):
     conf_threshold: float = 0.50
 
     def init(self):
-        # Load the model artifacts once
+        # 1. Load Artifacts (Metadata)
         if self.artifacts is not None:
-            self.model = self.artifacts["model"]
-            self.scaler = self.artifacts["scaler"]
-            self.feature_cols = self.artifacts["feature_cols"]
-            self.horizon = self.artifacts.get("horizon", 1)
-        elif not self.model:
+            artifacts = self.artifacts
+        else:
             artifacts = joblib.load(self.model_path)
-            self.model = artifacts["model"]
-            self.scaler = artifacts["scaler"]
-            self.feature_cols = artifacts["feature_cols"]
-            # Dynamically read the horizon from the model file!
-            self.horizon = artifacts.get("horizon", 1)
+
+        # 2. Reconstruct Model using Factory
+        from src.models.model_factory import ModelFactory
+        from src.models.base_torch_model import PyTorchBaseModel
+
+        self.model_type = artifacts.get("model_type", "RandomForest")
+        self.model_params = artifacts.get("model_params", {})
+        self.feature_cols = artifacts["feature_cols"]
+        self.scaler = artifacts["scaler"]
+        self.horizon = artifacts.get("horizon", 1)
+
+        # Instantiate fresh model
+        self.model = ModelFactory.get_model(self.model_type, self.model_params)
+
+        # 3. Load Weights (State Dict)
+        if self.artifacts is None:
+            # Standalone mode: Weights are in the same folder as model.joblib
+            state_path = self.model_path.replace("model.joblib", "model_state.joblib")
+            if os.path.exists(state_path):
+                self.model.load(state_path)
+            else:
+                # Fallback for Scikit-learn models which might be stored inside the joblib
+                if "model" in artifacts:
+                    self.model = artifacts["model"]
 
         if self.scaler is None or self.model is None:
             raise ValueError("Model or Scaler failed to load.")
@@ -59,6 +76,14 @@ class MLBaseStrategy(Strategy):
         # and pads the warm-up period to ensure the output length matches the input length.
         self.all_predictions = self.model.predict(self.scaled_features)
         self.all_probas = self.model.predict_proba(self.scaled_features)
+
+        # DEBUG: Print signal distribution
+        unique, counts = np.unique(self.all_predictions, return_counts=True)
+        dist = dict(zip(unique, counts))
+        print(f"Signal Distribution: {dist}")
+        
+        passed_conf = np.sum((self.all_predictions != 2) & (np.max(self.all_probas, axis=1) >= self.conf_threshold))
+        print(f"Signals passing confidence ({self.conf_threshold}): {passed_conf}")
 
         self.current_idx = 0
 

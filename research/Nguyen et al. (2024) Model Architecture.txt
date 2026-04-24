@@ -1,0 +1,31 @@
+Model Architecture
+The authors engineered a highly efficient hybrid network by combining Convolutional Neural Networks (CNNs) with a Long Short-Term Memory (LSTM) layer.
+
+CNN Layers (Feature Extraction): The architecture utilizes two 1D Convolutional layers equipped with 32 and 64 filters, respectively, alongside a kernel size of 3. These layers use the ReLU activation function to introduce non-linearity and automatically extract spatial hierarchies and key features from the input data. L2 regularization is applied to these layers to penalize large weights and improve overall generalization.
+
+LSTM Layer (Sequence Tracking): The feature maps extracted by the CNNs are fed into a single LSTM layer consisting of 50 units. This layer captures the long-term temporal dependencies essential for understanding sequential time-series data. It utilizes tanh and sigmoid activation functions, and a dropout rate of 0.2 is applied to mitigate overfitting.
+
+Output Layer: The final prediction is generated through a dense layer containing a single neuron.
+
+Data Features and Engineering
+The model was trained and evaluated on 10 years of daily resolution data sourced from Yahoo Finance.
+
+Core Pricing Data: The baseline inputs consist of daily Open, High, Low, Close, and Volume (OHLCV) values.
+
+Technical Indicators: To increase model performance, 14 distinct technical indicators are calculated from past data and included as input variables. These indicators are TRIX, VWAMA, MOM, ROC, RSI, ATR, MFI, EFI, BBWidth, CCI, TSI, STOCHRSI, ADX, and STOCH.
+
+Sliding Window Mechanism: The total 19 features (OHLCV + 14 indicators) are fed into the network using a 5-day sliding window, which equates to 4 time steps.
+
+Key Implementation Techniques
+The paper introduced two major strategic shifts to optimize how the neural network's predictions are executed in a live market.
+
+Three-Value Labeling: Moving away from standard binary classification (Up/Down), the authors introduced an "unknown" state (labeled '2'). This state identifies minor price fluctuations and transitional phases, forcing the model to wait for a genuine trend to form rather than trading on market noise. The dataset labels were balanced at 35% 'up', 35% 'unknown', and 30% 'down'.
+
+ETF-Inspired Portfolio Strategy: To reduce the risk of liquidation on a single bad trade, the paper proposes a diversification strategy inspired by Exchange Traded Funds (ETFs). Using a 90-day sliding window, the system trains on 45 days of data, selects the top 10 best-performing Forex symbols, and then exclusively trades those specific symbols over the next 45 days. This ensures that potential losses on one currency pair are balanced by profits on others.
+
+Evaluation and Results
+Return Profit vs. Accuracy: The authors established mathematically that the relationship between model accuracy and actual financial profit is non-linear. Even a highly accurate model can lose capital if it misses major market turning points, so "Return Profit" was strictly used as the primary metric for optimization and evaluation.
+
+Model Performance: The proposed hybrid model (2 Conv + 1 LSTM) was tested against three alternative architectures (such as vanilla Dense networks) and outperformed them across all metrics. The hybrid model achieved 97% accuracy, a Mean Squared Error (MSE) of 0.025, and a 15% return profit.
+
+Trading Strategy Performance: When simulating live trading over a year, the ETF implementation executed fewer orders (371) compared to a baseline method (497), but secured a massively superior overall profit of 102.82% compared to the baseline's 33.14%. The average profit per order under the ETF strategy was 6.03%, compared to a mere 0.99% from the baseline method.

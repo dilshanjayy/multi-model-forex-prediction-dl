@@ -45,8 +45,13 @@ class PyTorchBaseModel(BaseModel, nn.Module):
         print(f"Starting Training on {self.device}...")
 
         # 1. Balanced Class Weights (Focus on directional signals)
-        all_labels = train_loader.dataset.y.cpu().numpy()
-        class_counts = np.bincount(all_labels, minlength=3)
+        # BUG FIX: Use ONLY the labels associated with the active training windows
+        # train_loader.dataset.y contains all labels, but we only use [lookback-1:]
+        all_labels_full = train_loader.dataset.y.cpu().numpy()
+        lookback = self.config.get("lookback", 60)
+        active_labels = all_labels_full[lookback - 1:]
+        
+        class_counts = np.bincount(active_labels, minlength=3)
         class_counts = np.maximum(class_counts, 1)
         weights = 1.0 / class_counts
         # Ensure Neutral class doesn't get more weight than signals
@@ -179,7 +184,7 @@ class PyTorchBaseModel(BaseModel, nn.Module):
         torch.save(self.state_dict(), path)
 
     def load(self, path: str):
-        self.load_state_dict(torch.load(path, map_location=self.device))
+        self.load_state_dict(torch.load(path, map_location=self.device), strict=False)
 
     @property
     def expects_sequences(self) -> bool:

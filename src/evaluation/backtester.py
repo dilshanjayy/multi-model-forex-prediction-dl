@@ -3,6 +3,7 @@ import argparse
 import sys
 import json
 import yaml
+import pandas as pd
 
 # Add project root to path so 'src' can be imported
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -49,16 +50,22 @@ def run_backtest_session(
     df.sort_index(inplace=True)
 
     # 2. Filter for Test Period
+    # Ensure start_date and end_date are timezone-aware to match the index
     print(f"Filtering data from {start_date} to {end_date if end_date else 'End'}...")
-    if end_date:
-        test_df = df[(df.index >= start_date) & (df.index < end_date)].copy()
+
+    # Convert string dates to UTC-aware Timestamps and ensure normalized precision
+    start_ts = pd.to_datetime(start_date, utc=True).floor("s")
+    end_ts = pd.to_datetime(end_date, utc=True).floor("s") if end_date else None
+
+    if end_ts:
+        test_df = df[(df.index >= start_ts) & (df.index < end_ts)].copy()
     else:
-        test_df = df[df.index >= start_date].copy()
+        test_df = df[df.index >= start_ts].copy()
 
+    print(f"Backtest dataset size: {len(test_df)} bars")
     if len(test_df) == 0:
-        print("Error: No test data found.")
+        print(f"Error: No data found for the specified range. Index Range: {df.index[0]} to {df.index[-1]}")
         return
-
     # 3. Strategy Mapping
     strategies = {
         "NaiveFlip": NaiveFlipStrategy,
@@ -85,7 +92,7 @@ def run_backtest_session(
         model_path=model_path,
         v_size=v_size,
         atr_multiplier=atr_multiplier,
-        conf_threshold=conf_threshold
+        conf_threshold=conf_threshold,
     )
 
     print("\n--- RESULTS ---")

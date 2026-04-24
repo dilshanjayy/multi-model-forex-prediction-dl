@@ -7,6 +7,7 @@ from datetime import datetime
 import pandas as pd
 
 # import modular components
+from src.utils.reproducibility import set_seed
 from src.data.market_data_collector import save_market_data_to_csv
 from src.data.data_processor import (
     generate_features,
@@ -28,6 +29,7 @@ def load_config(config_path):
 
 
 def main():
+    set_seed(42)
     parser = argparse.ArgumentParser(
         description="Multi-Model Forex Prediction Pipeline"
     )
@@ -242,8 +244,8 @@ def main():
                 margin=config["backtest"].get("margin", 0.02),
                 conf_threshold=config["backtest"].get("conf_threshold", 0.40),
                 output_dir=experiment_dir,
-                suffix="Validation"
-                )
+                suffix="Validation",
+            )
 
         print(f"\n--- Experiment {config['project']['name']} Complete ---")
         print(f"All artifacts are in: {experiment_dir}")
@@ -344,8 +346,8 @@ def main():
             margin=config["backtest"].get("margin", 0.02),
             conf_threshold=config["backtest"].get("conf_threshold", 0.40),
             output_dir=output_dir,
-            suffix="TestSet_Final"
-            )
+            suffix="TestSet_Final",
+        )
         print(f"--- Backtest Step Complete. Results saved to: {output_dir} ---")
 
 

@@ -24,6 +24,8 @@ class DataModule:
 
         for comp in components:
             df = self.load_component(comp)
+            # FORCE UTC and normalize precision to 'ns' to ensure cross-OS compatibility
+            df["time"] = pd.to_datetime(df["time"], utc=True).dt.floor("s") 
             df.set_index("time", inplace=True)
 
             if base_df is None:
@@ -32,9 +34,10 @@ class DataModule:
                 # Join on time index to ensure alignment
                 base_df = base_df.join(df, how="inner")
 
-        if base_df is None:
-            raise ValueError("No components were successfully loaded. Check your 'components' list.")
+        if base_df is None or len(base_df) == 0:
+            raise ValueError(f"Dataset preparation failed. Final rows: {0 if base_df is None else len(base_df)}. Check if component timestamps match.")
 
+        print(f"Dataset prepared successfully: {len(base_df)} rows.")
         return base_df
 
     @staticmethod
