@@ -68,8 +68,16 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
 
         # 1. Hyperparameters for Data
         h = trial.suggest_categorical("horizon", horizons)
-        m = trial.suggest_categorical("label_atr_multiplier", atr_multipliers)
-        target_col = f"Target_{h}h_{m}x_TBM"
+        
+        # Check if the baseline config uses Nguyen labels or TBM
+        base_target = config.get("model", {}).get("target", "TBM")
+        if "Nguyen" in base_target:
+            target_col = f"Target_{h}h_Nguyen"
+            # We still need an exit multiplier for the backtest strategy, even if it's not used in labeling
+            trial.suggest_categorical("label_atr_multiplier", atr_multipliers) # just to consume the parameter so it doesn't break logs
+        else:
+            m = trial.suggest_categorical("label_atr_multiplier", atr_multipliers)
+            target_col = f"Target_{h}h_{m}x_TBM"
 
         # 2. Hyperparameters for Model
         model_params: Dict[str, Any] = {"random_state": 42}
@@ -180,7 +188,8 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
         sharpe = stats.get("Sharpe Ratio", 0.0)
         num_trades = stats.get("# Trades", 0)
         
-        if pd.isna(pf) or pd.isna(sharpe) or num_trades < 5:
+        # Force statistical significance: Reject models with fewer than 30 trades
+        if pd.isna(pf) or pd.isna(sharpe) or num_trades < 30:
             return 0.0
 
         # If Sharpe is negative, it reduces the score. If positive, it boosts it.
@@ -216,7 +225,11 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
     optimized_config = config.copy()
     
     # Update Data Section
-    optimized_config["model"]["target"] = f"Target_{trial.params['horizon']}h_{trial.params['label_atr_multiplier']}x_TBM"
+    base_target = config.get("model", {}).get("target", "TBM")
+    if "Nguyen" in base_target:
+        optimized_config["model"]["target"] = f"Target_{trial.params['horizon']}h_Nguyen"
+    else:
+        optimized_config["model"]["target"] = f"Target_{trial.params['horizon']}h_{trial.params['label_atr_multiplier']}x_TBM"
     
     # Update Model Section (Model-Type Aware)
     if model_type == "RandomForest":

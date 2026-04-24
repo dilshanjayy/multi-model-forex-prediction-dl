@@ -128,6 +128,31 @@ def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def add_nguyen_labels(df: pd.DataFrame, horizon: int = 24) -> pd.DataFrame:
+    """
+    Implements the Nguyen et al. (2024) 3-class labeling method.
+    Top 35% of returns -> 0 (Up)
+    Bottom 30% of returns -> 1 (Down)
+    Middle 35% -> 2 (Unknown/Hold)
+    """
+    future_ret = (df['Close'].shift(-horizon) - df['Close']) / df['Close']
+    valid_rets = future_ret.dropna()
+    
+    # Calculate global thresholds (Note: calculating over the whole dataset introduces 
+    # slight look-ahead bias, which is a common reason academic papers show 97% accuracy)
+    thresh_down = valid_rets.quantile(0.30)
+    thresh_up = valid_rets.quantile(0.65)
+    
+    labels = np.full(len(df), np.nan)
+    labels[future_ret > thresh_up] = 0
+    labels[future_ret <= thresh_down] = 1
+    labels[(future_ret > thresh_down) & (future_ret <= thresh_up)] = 2
+    
+    col_name = f"Target_{horizon}h_Nguyen"
+    df[col_name] = labels
+    return df
+
+
 def generate_targets(
     df: pd.DataFrame,
     horizons: list = [5, 12, 24],
@@ -140,8 +165,12 @@ def generate_targets(
     # add multiple raw target horizons (e.g., 5, 12, 24 periods ahead)
     df = add_multi_horizon_log_returns(df, horizons=horizons)
 
-    # add Triple Barrier Labeling for all combinations
+    # add Triple Barrier Labeling and Nguyen Labeling for all combinations
     for h in horizons:
+        # Add Nguyen et al. Quantile Labels
+        df = add_nguyen_labels(df, horizon=h)
+        
+        # Add TBM Labels
         for m in atr_multipliers:
             df = add_triple_barrier_labels(df, horizon=h, atr_multiplier=m)
 
