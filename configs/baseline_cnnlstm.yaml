@@ -15,26 +15,26 @@ data:
 
 model:
     type: "CNN-LSTM"
-    target: "Target_24h_3.0x_TBM"
+    target: "Target_24h_2.0x_TBM"
     batch_size: 64
     params:
-        epochs: 50
-        learning_rate: 0.0005
-        weight_decay: 1e-5
+        epochs: 100
+        learning_rate: 0.00005
+        weight_decay: 0.001
         cnn_filters_1: 32
         cnn_filters_2: 64
         lstm_units: 50
         kernel_size: 3
-        dropout: 0.2
+        dropout: 0.3
 
 backtest:
     strategy: "TripleBarrier"
     cash: 10000.0
     commission: 0.0001
     v_size: 10000.0
-    atr_multiplier: 3.0
+    atr_multiplier: 2.0
     margin: 0.02
-    conf_threshold: 0.65
+    conf_threshold: 0.45
 
 optimization:
     search_space:
