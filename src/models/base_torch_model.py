@@ -62,7 +62,10 @@ class PyTorchBaseModel(BaseModel, nn.Module):
         print(f"Applied Class Weights: {weights}")
         self.criterion = nn.CrossEntropyLoss(weight=class_weights)
 
-        optimizer = optim.Adam(self.parameters(), lr=self.lr)
+        # 2. Optimizer with optional L2 Regularization (Weight Decay)
+        wd = self.config.get("weight_decay", 0.0)
+        optimizer = optim.Adam(self.parameters(), lr=self.lr, weight_decay=wd)
+        
         best_val_loss = float("inf")
         self.best_state = self.state_dict()  # Initial state
         patience = 15

@@ -99,6 +99,17 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
             model_params["epochs"] = config["model"]["params"].get("epochs", 50)
             model_params["lookback"] = config["data"].get("lookback", 60)
 
+        elif model_type == "CNN-LSTM":
+            model_params["cnn_filters_1"] = trial.suggest_categorical("cnn_filters_1", [16, 32, 64])
+            model_params["cnn_filters_2"] = trial.suggest_categorical("cnn_filters_2", [32, 64, 128])
+            model_params["lstm_units"] = trial.suggest_categorical("lstm_units", [32, 50, 100])
+            model_params["kernel_size"] = trial.suggest_int("kernel_size", 2, 5)
+            model_params["dropout"] = trial.suggest_float("dropout", 0.1, 0.4, step=0.1)
+            model_params["weight_decay"] = trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True)
+            model_params["learning_rate"] = trial.suggest_float("learning_rate", 1e-4, 1e-3, log=True)
+            model_params["epochs"] = config["model"]["params"].get("epochs", 50)
+            model_params["lookback"] = config["data"].get("lookback", 60)
+
         # 3. Hyperparameters for Strategy
         exit_range = search_space.get("exit_atr_multiplier", [1.0, 5.0, 0.5])
         exit_atr_multiplier = trial.suggest_float("exit_atr_multiplier", exit_range[0], exit_range[1], step=exit_range[2] if len(exit_range) > 2 else None)
@@ -213,6 +224,14 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
         optimized_config["model"]["params"]["hidden_dim"] = trial.params["hidden_dim"]
         optimized_config["model"]["params"]["num_layers"] = trial.params["num_layers"]
         optimized_config["model"]["params"]["dropout"] = trial.params["dropout"]
+        optimized_config["model"]["params"]["learning_rate"] = trial.params["learning_rate"]
+    elif model_type == "CNN-LSTM":
+        optimized_config["model"]["params"]["cnn_filters_1"] = trial.params["cnn_filters_1"]
+        optimized_config["model"]["params"]["cnn_filters_2"] = trial.params["cnn_filters_2"]
+        optimized_config["model"]["params"]["lstm_units"] = trial.params["lstm_units"]
+        optimized_config["model"]["params"]["kernel_size"] = trial.params["kernel_size"]
+        optimized_config["model"]["params"]["dropout"] = trial.params["dropout"]
+        optimized_config["model"]["params"]["weight_decay"] = trial.params["weight_decay"]
         optimized_config["model"]["params"]["learning_rate"] = trial.params["learning_rate"]
     
     # Update Backtest Section

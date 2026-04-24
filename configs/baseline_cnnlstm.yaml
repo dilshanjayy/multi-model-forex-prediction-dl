@@ -1,0 +1,42 @@
+# Baseline CNN-LSTM Configuration
+project:
+    name: "forex-cnnlstm"
+    symbol: "EURUSD"
+    timeframe: "H1"
+
+data:
+    raw_input: "data/raw_market/EURUSD_H1_20210501_20260331.csv"
+    processed_dir: "data/processed_market"
+    horizons: [5, 12, 24]
+    atr_multipliers: [1.0, 1.5, 2.0, 2.5, 3.0]
+    val_split_date: "2024-01-01"
+    test_split_date: "2025-01-01"
+    lookback: 60
+
+model:
+    type: "CNN-LSTM"
+    target: "Target_12h_1.5x_TBM"
+    batch_size: 64
+    params:
+        epochs: 50
+        learning_rate: 0.0005
+        weight_decay: 1e-5
+        cnn_filters_1: 32
+        cnn_filters_2: 64
+        lstm_units: 50
+        kernel_size: 3
+        dropout: 0.2
+
+backtest:
+    strategy: "TripleBarrier"
+    cash: 10000.0
+    commission: 0.0001
+    v_size: 10000.0
+    atr_multiplier: 1.5
+    margin: 0.02
+    conf_threshold: 0.50
+
+optimization:
+    search_space:
+        exit_atr_multiplier: [1.0, 4.0, 0.5]
+        conf_threshold: [0.35, 0.60, 0.05]

@@ -2,6 +2,7 @@ from typing import Any, Dict
 from src.models.rf_model import RFModel
 from src.models.transformer_model import TransformerModel
 from src.models.lstm_model import LSTMModel
+from src.models.cnnlstm_model import CNNLSTMModel
 
 class ModelFactory:
     """
@@ -12,6 +13,7 @@ class ModelFactory:
         "RandomForest": RFModel,
         "Transformer": TransformerModel,
         "LSTM": LSTMModel,
+        "CNN-LSTM": CNNLSTMModel,
     }
 
     @staticmethod
