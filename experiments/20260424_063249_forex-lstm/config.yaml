@@ -1,45 +1,45 @@
 backtest:
-  atr_multiplier: 1.5
-  cash: 10000.0
-  commission: 0.0001
-  conf_threshold: 0.55
-  margin: 0.02
-  strategy: TripleBarrier
-  v_size: 10000.0
+    atr_multiplier: 1.5
+    cash: 10000.0
+    commission: 0.0001
+    conf_threshold: 0.50
+    margin: 0.02
+    strategy: TripleBarrier
+    v_size: 10000.0
 data:
-  atr_multipliers:
-  - 1.5
-  horizons:
-  - 12
-  lookback: 60
-  processed_dir: data/processed_market
-  raw_input: data/raw_market/EURUSD_H1_20210501_20260331.csv
-  test_split_date: '2025-01-01'
-  val_split_date: '2024-01-01'
-model:
-  batch_size: 64
-  params:
-    batch_size: 64
-    dropout: 0.5
-    epochs: 50
-    hidden_dim: 32
-    input_dim: 23
-    learning_rate: 0.0001
+    atr_multipliers:
+        - 1.5
+    horizons:
+        - 12
     lookback: 60
-    num_layers: 2
-  target: Target_12h_1.5x_TBM
-  type: LSTM
+    processed_dir: data/processed_market
+    raw_input: data/raw_market/EURUSD_H1_20210501_20260331.csv
+    test_split_date: "2025-01-01"
+    val_split_date: "2024-01-01"
+model:
+    batch_size: 64
+    params:
+        batch_size: 64
+        dropout: 0.5
+        epochs: 50
+        hidden_dim: 32
+        input_dim: 23
+        learning_rate: 0.0001
+        lookback: 60
+        num_layers: 2
+    target: Target_12h_1.5x_TBM
+    type: LSTM
 optimization:
-  search_space:
-    conf_threshold:
-    - 0.35
-    - 0.6
-    - 0.05
-    exit_atr_multiplier:
-    - 1.0
-    - 4.0
-    - 0.5
+    search_space:
+        conf_threshold:
+            - 0.35
+            - 0.6
+            - 0.05
+        exit_atr_multiplier:
+            - 1.0
+            - 4.0
+            - 0.5
 project:
-  name: forex-lstm
-  symbol: EURUSD
-  timeframe: H1
+    name: forex-lstm
+    symbol: EURUSD
+    timeframe: H1
