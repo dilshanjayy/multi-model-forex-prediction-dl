@@ -89,7 +89,7 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
             model_params["dropout"] = trial.suggest_float("dropout", 0.1, 0.4, step=0.1)
             model_params["learning_rate"] = trial.suggest_float("learning_rate", 1e-4, 1e-2, log=True)
             model_params["epochs"] = config["model"]["params"].get("epochs", 50)
-            model_params["lookback"] = config["data"].get("lookback", 60)
+            model_params["lookback"] = trial.suggest_categorical("lookback", [60, 120, 240])
         
         elif model_type == "LSTM":
             model_params["hidden_dim"] = trial.suggest_categorical("hidden_dim", [32, 64, 128, 256])
@@ -97,7 +97,7 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
             model_params["dropout"] = trial.suggest_float("dropout", 0.1, 0.5, step=0.1)
             model_params["learning_rate"] = trial.suggest_float("learning_rate", 1e-4, 1e-2, log=True)
             model_params["epochs"] = config["model"]["params"].get("epochs", 50)
-            model_params["lookback"] = config["data"].get("lookback", 60)
+            model_params["lookback"] = trial.suggest_categorical("lookback", [60, 120, 240])
 
         elif model_type == "CNN-LSTM":
             model_params["cnn_filters_1"] = trial.suggest_categorical("cnn_filters_1", [16, 32, 64])
@@ -108,7 +108,7 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
             model_params["weight_decay"] = trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True)
             model_params["learning_rate"] = trial.suggest_float("learning_rate", 1e-4, 1e-3, log=True)
             model_params["epochs"] = config["model"]["params"].get("epochs", 50)
-            model_params["lookback"] = config["data"].get("lookback", 60)
+            model_params["lookback"] = trial.suggest_categorical("lookback", [60, 120, 240])
 
         # 3. Hyperparameters for Strategy
         exit_range = search_space.get("exit_atr_multiplier", [1.0, 5.0, 0.5])
@@ -145,7 +145,8 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
                 train_df.loc[valid_indices], val_df_full, train_df.loc[valid_indices], 
                 target_col=target_col
             )
-            model_wrapper.train_model(train_loader, val_loader)
+            # Pass the trial object so the model can prune itself if it's performing poorly
+            model_wrapper.train_model(train_loader, val_loader, trial=trial)
         else:
             model_wrapper.fit(X_train_scaled, y_train)
 
@@ -174,15 +175,22 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
             conf_threshold=conf_threshold
         )
 
-        # Maximize the Profit Factor. If no trades or NaN, return 0.
+        # Smart Objective: Maximize Profit Factor, but penalize bad Sharpe Ratios
         pf = stats.get("Profit Factor", np.nan)
+        sharpe = stats.get("Sharpe Ratio", 0.0)
         num_trades = stats.get("# Trades", 0)
-        if pd.isna(pf) or num_trades < 5:
+        
+        if pd.isna(pf) or pd.isna(sharpe) or num_trades < 5:
             return 0.0
 
-        return pf
+        # If Sharpe is negative, it reduces the score. If positive, it boosts it.
+        # This prevents the optimizer from picking a "lucky" model with a jagged equity curve.
+        adjusted_score = pf * (1.0 + (sharpe / 10.0))
+        return adjusted_score
 
-    study = optuna.create_study(direction="maximize")
+    # Use MedianPruner to kill the bottom 50% of trials after epoch 10
+    pruner = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=10, interval_steps=1)
+    study = optuna.create_study(direction="maximize", pruner=pruner)
     print(f"\n--- Starting Optuna Optimization ({n_trials} trials) ---")
 
     # Suppress backtesting prints during trials

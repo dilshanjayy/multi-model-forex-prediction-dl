@@ -37,9 +37,9 @@ class PyTorchBaseModel(BaseModel, nn.Module):
             "PyTorch models use train_model(train_loader, val_loader) for sequence training."
         )
 
-    def train_model(self, train_loader, val_loader):
+    def train_model(self, train_loader, val_loader, trial=None):
         """
-        Standard PyTorch Training Loop with Early Stopping and Weight Restoration.
+        Standard PyTorch Training Loop with Early Stopping, Weight Restoration, and Optuna Pruning.
         """
         self.to(self.device)
         print(f"Starting Training on {self.device}...")
@@ -100,6 +100,14 @@ class PyTorchBaseModel(BaseModel, nn.Module):
                 print(
                     f"Epoch {epoch + 1}/{self.epochs} | Train Loss: {train_loss / len(train_loader):.4f} | Val Loss: {avg_val:.4f}"
                 )
+
+            # Optuna Pruning: Report the validation loss back to the optimizer
+            if trial is not None:
+                import optuna
+                trial.report(avg_val, epoch)
+                if trial.should_prune():
+                    print(f"Trial pruned by Optuna at epoch {epoch + 1} due to poor performance.")
+                    raise optuna.TrialPruned()
 
             # Always track and save the best state
             if avg_val < best_val_loss:
