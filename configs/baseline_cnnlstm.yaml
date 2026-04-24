@@ -19,13 +19,13 @@ model:
     batch_size: 64
     params:
         epochs: 100
-        learning_rate: 0.00005
-        weight_decay: 0.001
+        learning_rate: 0.001
+        weight_decay: 1e-5
         cnn_filters_1: 32
         cnn_filters_2: 64
         lstm_units: 50
         kernel_size: 3
-        dropout: 0.3
+        dropout: 0.2
 
 backtest:
     strategy: "TripleBarrier"
