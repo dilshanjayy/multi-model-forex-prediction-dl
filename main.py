@@ -160,6 +160,13 @@ def main():
         default=50,
         help="Number of Optuna trials to run",
     )
+    parser_opt.add_argument(
+        "--metric",
+        type=str,
+        default="profit",
+        choices=["profit", "loss"],
+        help="Metric to optimize: 'profit' (Profit Factor) or 'loss' (Validation Loss)",
+    )
 
     # --- SUBCOMMAND: run ---
     parser_exp = subparsers.add_parser(
@@ -182,7 +189,7 @@ def main():
 
     # --- optimize ---
     if args.command == "optimize":
-        run_optimization_study(args.config, n_trials=args.trials)
+        run_optimization_study(args.config, n_trials=args.trials, metric=args.metric)
 
     # --- run ---
     if args.command == "run":

@@ -127,6 +127,7 @@ class PyTorchBaseModel(BaseModel, nn.Module):
         # MANDATORY: Restore best performing weights for inference
         self.load_state_dict(self.best_state)
         self.to(self.device)
+        return best_val_loss
 
     def _process_2d_input(self, X: np.ndarray) -> torch.Tensor:
         lookback = self.config.get("lookback", 60)

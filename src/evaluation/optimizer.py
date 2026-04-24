@@ -11,7 +11,7 @@ from src.models.model_factory import ModelFactory
 from src.strategies.base_strategies import TripleBarrierStrategy
 
 
-def run_optimization_study(config_path: str, n_trials: int = 50):
+def run_optimization_study(config_path: str, n_trials: int = 50, metric: str = "profit"):
     # Set seed once globally for the study (fast mode)
     from src.utils.reproducibility import set_seed
     set_seed(42, strict=False)
@@ -155,11 +155,28 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
                 target_col=target_col
             )
             # Pass the trial object so the model can prune itself if it's performing poorly
-            model_wrapper.train_model(train_loader, val_loader, trial=trial)
+            best_val_loss = model_wrapper.train_model(train_loader, val_loader, trial=trial)
+            
+            if metric == "loss":
+                return best_val_loss
         else:
             model_wrapper.fit(X_train_scaled, y_train)
+            if metric == "loss":
+                from sklearn.metrics import log_loss
+                try:
+                    # Align validation set for sklearn evaluation
+                    y_val_series = val_df_full[target_col].dropna()
+                    X_val_raw = val_df_full.loc[y_val_series.index, feature_cols]
+                    X_val_scaled = scaler.transform(X_val_raw)
+                    y_val_pred_proba = model_wrapper.predict_proba(X_val_scaled)
+                    return log_loss(y_val_series.to_numpy(), y_val_pred_proba)
+                except Exception:
+                    # Fallback to accuracy if proba isn't available
+                    y_val_pred = model_wrapper.predict(X_val_scaled)
+                    from sklearn.metrics import accuracy_score
+                    return 1.0 - accuracy_score(y_val_series.to_numpy(), y_val_pred)
 
-        # 6. BACKTEST
+        # 6. BACKTEST (Only executed if metric == "profit")
         artifacts = {
             "model": model_wrapper,
             "scaler": scaler,
@@ -200,8 +217,11 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
 
     # Use MedianPruner to kill the bottom 50% of trials after epoch 10
     pruner = optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=10, interval_steps=1)
-    study = optuna.create_study(direction="maximize", pruner=pruner)
-    print(f"\n--- Starting Optuna Optimization ({n_trials} trials) ---")
+    
+    # Decide direction based on metric
+    direction = "minimize" if metric == "loss" else "maximize"
+    study = optuna.create_study(direction=direction, pruner=pruner)
+    print(f"\n--- Starting Optuna Optimization ({n_trials} trials | Metric: {metric}) ---")
 
     # Suppress backtesting prints during trials
     import sys
