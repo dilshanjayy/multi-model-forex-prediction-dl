@@ -7,31 +7,31 @@ project:
 data:
     raw_input: "data/raw_market/EURUSD_H1_20210501_20260331.csv"
     processed_dir: "data/processed_market"
-    horizons: [5, 12, 24]
-    atr_multipliers: [1.0, 2.0, 3.0]
+    horizons: [12]
+    atr_multipliers: [1.5]
     val_split_date: "2024-01-01"
     test_split_date: "2025-01-01"
     lookback: 60
 
 model:
     type: "LSTM"
-    target: "Target_12h_3.0x_TBM"
+    target: "Target_12h_1.5x_TBM"
     batch_size: 64
     params:
         epochs: 50
-        learning_rate: 0.001
-        hidden_dim: 128
+        learning_rate: 0.0001
+        hidden_dim: 32
         num_layers: 2
-        dropout: 0.2
+        dropout: 0.5
 
 backtest:
     strategy: "TripleBarrier"
     cash: 10000.0
     commission: 0.0001
     v_size: 10000.0
-    atr_multiplier: 2.0
+    atr_multiplier: 1.5
     margin: 0.02
-    conf_threshold: 0.50
+    conf_threshold: 0.55
 
 optimization:
     search_space:

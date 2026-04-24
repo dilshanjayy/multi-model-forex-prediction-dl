@@ -185,6 +185,7 @@ class PyTorchBaseModel(BaseModel, nn.Module):
 
     def load(self, path: str):
         self.load_state_dict(torch.load(path, map_location=self.device), strict=False)
+        self.to(self.device) # Force sync weights to the correct device
 
     @property
     def expects_sequences(self) -> bool:

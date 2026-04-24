@@ -25,13 +25,16 @@ class MLBaseStrategy(Strategy):
     conf_threshold: float = 0.50
 
     def init(self):
-        # 1. Load Artifacts (Metadata)
+        # 1. Load Artifacts
         if self.artifacts is not None:
             artifacts = self.artifacts
+            # CRITICAL: During optimization, the model is already trained and passed in artifacts
+            if "model" in artifacts:
+                self.model = artifacts["model"]
         else:
             artifacts = joblib.load(self.model_path)
 
-        # 2. Reconstruct Model using Factory
+        # 2. Reconstruct Model metadata
         from src.models.model_factory import ModelFactory
         from src.models.base_torch_model import PyTorchBaseModel
 
@@ -41,18 +44,17 @@ class MLBaseStrategy(Strategy):
         self.scaler = artifacts["scaler"]
         self.horizon = artifacts.get("horizon", 1)
 
-        # Instantiate fresh model
-        self.model = ModelFactory.get_model(self.model_type, self.model_params)
-
-        # 3. Load Weights (State Dict)
-        if self.artifacts is None:
-            # Standalone mode: Weights are in the same folder as model.joblib
-            state_path = self.model_path.replace("model.joblib", "model_state.joblib")
-            if os.path.exists(state_path):
-                self.model.load(state_path)
-            else:
-                # Fallback for Scikit-learn models which might be stored inside the joblib
-                if "model" in artifacts:
+        # 3. Instantiate/Load Weights
+        if self.model is None:
+            # Standalone mode: Reconstruct and load weights
+            self.model = ModelFactory.get_model(self.model_type, self.model_params)
+            
+            if self.artifacts is None:
+                state_path = self.model_path.replace("model.joblib", "model_state.joblib")
+                if os.path.exists(state_path):
+                    self.model.load(state_path)
+                elif "model" in artifacts:
+                    # Scikit-learn fallback
                     self.model = artifacts["model"]
 
         if self.scaler is None or self.model is None:
@@ -70,6 +72,10 @@ class MLBaseStrategy(Strategy):
         self.scaled_features = self.scaler.transform(self.prepared_data)
 
         print(f"Running bulk inference on {len(self.scaled_features)} rows...")
+        
+        # FEATURE AUDIT: Print a summary of the first row to detect environment drift
+        first_row_sum = np.sum(self.scaled_features[self.horizon + 10]) # Skip warm-up
+        print(f"FEATURE AUDIT: Checksum of row {self.horizon + 10}: {first_row_sum:.6f}")
         
         # Both Tabular and Deep Learning models expect the 2D scaled_features here.
         # The PyTorchBaseModel internally converts the 2D array into 3D sliding windows

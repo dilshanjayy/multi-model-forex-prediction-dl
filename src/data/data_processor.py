@@ -58,11 +58,20 @@ def add_triple_barrier_labels(
 def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     """
     Standardizes data, computes technical indicators, and cleans the DataFrame.
-    Returns an enriched DataFrame ready for labeling.
+    Following Nguyen et al. (2024) philosophy: Combining OHLCV returns + 14 indicators.
     """
     df = dataframe.copy()
 
-    # standardize column names for pandas_ta
+    # --- NUCLEAR ALIGNMENT ---
+    # We must align the STARTING POINT before any math happens.
+    # This ensures recursive indicators (EMA, TSI) start from the exact same bar.
+    df["time"] = pd.to_datetime(df["time"], utc=True)
+    df.set_index("time", inplace=True, drop=False)
+    df.sort_index(inplace=True)
+    df = df[df.index >= "2021-05-01"].copy() # Hard start 1 month before your 2021-06-01 goal
+    # --------------------------
+
+    # 1. Standardize column names
     df.rename(
         columns={
             "open": "Open",
@@ -74,28 +83,21 @@ def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
         inplace=True,
     )
 
-    # ensure time column is in datetime format and set as index
-    df["time"] = pd.to_datetime(df["time"], utc=True)
-    df.set_index("time", inplace=True, drop=False)
-    df.sort_index(inplace=True)
+    # 2. RELATIVE OHLCV (Essential for LSTM/CNN)
+    # Nguyen et al. use OHLCV, but for H1 we must use relative returns to ensure stationarity
+    df["Ret_Open"] = (df["Open"] - df["Open"].shift(1)) / df["Open"].shift(1)
+    df["Ret_High"] = (df["High"] - df["Open"]) / df["Open"] # Wick size
+    df["Ret_Low"] = (df["Open"] - df["Low"]) / df["Open"]   # Wick size
+    df["Ret_Close"] = (df["Close"] - df["Open"]) / df["Open"] # Body size
+    df["Ret_Vol"] = df["Volume"].pct_change()
 
-    # drop real_volume if it exists, as it's not needed for modeling
-    if "real_volume" in df.columns:
-        df.drop(columns=["real_volume"], inplace=True)
-
-    # strip any existing dead hours recorded by the broker
-    df = df[df["Volume"] > 0]
-
-    # forward-fill any internal NaNs just in case a price packet dropped but volume registered
-    df.ffill(inplace=True)
-
-    # define a comprehensive set of technical indicators to compute
-    baseline_strategy = ta.Study(  # type: ignore
-        name="Tech_Baseline",
-        cores=0,
+    # 3. NGUYEN ET AL. INDICATORS (14 total)
+    baseline_strategy = ta.Study( # type: ignore
+        name="Nguyen_Baseline",
+        cores=1, # FORCE single core to prevent non-deterministic Windows/Linux multi-processing bugs
         ta=[
             {"kind": "trix"},
-            {"kind": "vwap"},
+            {"kind": "vwap"}, # Paper uses VWAMA, VWAP is more robust for H1
             {"kind": "mom"},
             {"kind": "roc"},
             {"kind": "rsi"},
@@ -103,32 +105,32 @@ def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
             {"kind": "mfi"},
             {"kind": "efi"},
             {"kind": "bbands"},
-            {"kind": "kc"},  # Keltner Channels
             {"kind": "cci"},
             {"kind": "tsi"},
             {"kind": "stochrsi"},
             {"kind": "adx"},
             {"kind": "stoch"},
-            {"kind": "chop"},  # Choppiness Index
-            {"kind": "stc"},  # Schaff Trend Cycle
-            {"kind": "er"},  # Efficiency Ratio
         ],
     )
-
     df.ta.study(baseline_strategy)
 
-    # drop rows with any NaN values that may have been introduced by the indicators
+    # 4. Cleaning
     df.dropna(inplace=True)
+    df = df[df["Volume"] > 0]
+    df.ffill(inplace=True)
 
-    # remove redundant features based on correlation analysis
+    # Final Crop to the user-requested start date
+    df = df[df["time"] >= "2021-06-01"].copy()
+
+    # 5. PURGE (Keep paper-specific features and engineered returns)
     df = purge_redundant_features(df)
 
     return df
 
 
 def generate_targets(
-    df: pd.DataFrame, 
-    horizons: list = [5, 12, 24], 
+    df: pd.DataFrame,
+    horizons: list = [5, 12, 24],
     atr_multipliers: list = [1.0, 2.0, 3.0]
 ) -> pd.DataFrame:
     """
@@ -193,10 +195,10 @@ def purge_redundant_features(df: pd.DataFrame) -> pd.DataFrame:
         "TSIs_13_25_13",  # TSI signal line
         "STOCHRSId_14_14_3_3",  # StochRSI %D line
         "STOCHd_14_3_3",  # Stoch %D line
-        "MOM_10",  # 1.00 correlation with ROC
-        "BBL_5_2.0_2.0",  # 1.00 correlation with BBM
-        "BBU_5_2.0_2.0",  # 1.00 correlation with BBM
-        "BBM_5_2.0_2.0",  # 1.00 correlation with VWAP_D
+        "MOM_10",  # 1.0 correlation with ROC
+        "BBL_5_2.0_2.0",  # 1.0 correlation with BBM
+        "BBU_5_2.0_2.0",  # 1.0 correlation with BBM
+        "BBM_5_2.0_2.0",  # 1.0 correlation with VWAP_D
         "KCLe_20_2",
         "KCUe_20_2",
         "KCMe_20_2",  # Purge price-level Keltner components
