@@ -1,0 +1,58 @@
+{
+    "accuracy": 0.4650641025641026,
+    "classification_report": {
+        "Up (0)": {
+            "precision": 0.4155405405405405,
+            "recall": 0.29411764705882354,
+            "f1-score": 0.3444413329599552,
+            "support": 2091.0
+        },
+        "Down (1)": {
+            "precision": 0.42864197530864195,
+            "recall": 0.4048507462686567,
+            "f1-score": 0.4164068121851763,
+            "support": 2144.0
+        },
+        "Deadband (2)": {
+            "precision": 0.5188299817184644,
+            "recall": 0.7077306733167082,
+            "f1-score": 0.5987341772151898,
+            "support": 2005.0
+        },
+        "accuracy": 0.4650641025641026,
+        "macro avg": {
+            "precision": 0.4543374991892157,
+            "recall": 0.46889968888139616,
+            "f1-score": 0.4531941074534404,
+            "support": 6240.0
+        },
+        "weighted avg": {
+            "precision": 0.4532304132496025,
+            "recall": 0.4650641025641026,
+            "f1-score": 0.45087581055460574,
+            "support": 6240.0
+        }
+    },
+    "feature_importance": {
+        "ADX_14": NaN,
+        "ATRr_14": NaN,
+        "BBB_5_2.0_2.0": NaN,
+        "BBP_5_2.0_2.0": NaN,
+        "CCI_14_0.015": NaN,
+        "DMN_14": NaN,
+        "DMP_14": NaN,
+        "EFI_13": NaN,
+        "MFI_14": NaN,
+        "ROC_10": NaN,
+        "RSI_14": NaN,
+        "Ret_Close": NaN,
+        "Ret_High": NaN,
+        "Ret_Low": NaN,
+        "Ret_Open": NaN,
+        "Ret_Vol": NaN,
+        "STOCHRSIk_14_14_3_3": NaN,
+        "STOCHh_14_3_3": NaN,
+        "STOCHk_14_3_3": NaN,
+        "TRIX_30_9": NaN
+    }
+}
