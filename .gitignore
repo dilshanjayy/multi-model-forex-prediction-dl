@@ -1,3 +1,4 @@
 env/
 .vscode/
 GEMINI.md
+__pycache__/
