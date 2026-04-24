@@ -15,7 +15,7 @@ data:
 
 model:
     type: "CNN-LSTM"
-    target: "Target_24h_Nguyen"
+    target: "Target_12h_1.5x_TBM"
     batch_size: 64
     params:
         epochs: 100
