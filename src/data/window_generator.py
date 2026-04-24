@@ -34,12 +34,16 @@ class TimeSeriesWindowGenerator:
         self, 
         lookback: int = 60, 
         batch_size: int = 64,
-        feature_cols: List[str] = []
+        feature_cols: List[str] = [],
+        scaler = None
     ):
         self.lookback = lookback
         self.batch_size = batch_size
         self.feature_cols = feature_cols
-        self.scaler = StandardScaler()
+        
+        if scaler is None:
+            raise ValueError("A fitted scaler must be provided to prevent data leakage.")
+        self.scaler = scaler
 
     def prepare_loaders(
         self, 
@@ -49,14 +53,14 @@ class TimeSeriesWindowGenerator:
         target_col: str
     ) -> Tuple[DataLoader, DataLoader, DataLoader]:
         """
-        Fits scaler on training data and returns DataLoader triplets.
+        Transforms data using the provided external scaler and returns DataLoader triplets.
         """
         # 1. Feature Selection & Sorting (Ensure Order Locking)
         self.feature_cols.sort()
         
-        # 2. Fit and Transform Scaling
-        # We fit ONLY on training data to prevent leakage
-        x_train = self.scaler.fit_transform(train_df[self.feature_cols])
+        # 2. Transform Scaling
+        # We rely on the external scaler that was strictly fit on the training split
+        x_train = self.scaler.transform(train_df[self.feature_cols])
         x_val = self.scaler.transform(val_df[self.feature_cols])
         x_test = self.scaler.transform(test_df[self.feature_cols])
 

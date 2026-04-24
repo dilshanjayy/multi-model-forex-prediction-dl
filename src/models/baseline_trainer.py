@@ -100,7 +100,8 @@ def run_baseline_training(
         generator = TimeSeriesWindowGenerator(
             lookback=lookback, 
             batch_size=batch_size, 
-            feature_cols=list(feature_cols)
+            feature_cols=list(feature_cols),
+            scaler=scaler
         )
         train_loader, val_loader, test_loader = generator.prepare_loaders(
             train_df, val_df, test_df,

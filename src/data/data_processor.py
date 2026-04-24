@@ -130,19 +130,32 @@ def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
 
 def add_nguyen_labels(df: pd.DataFrame, horizon: int = 24) -> pd.DataFrame:
     """
-    Implements the Nguyen et al. (2024) 3-class labeling method.
+    Implements the Nguyen et al. (2024) 3-class labeling method dynamically
+    using a rolling window to prevent future data leakage (lookahead bias).
     Top 35% of returns -> 0 (Up)
     Bottom 30% of returns -> 1 (Down)
     Middle 35% -> 2 (Unknown/Hold)
     """
+    # 1. Calculate future returns
     future_ret = (df['Close'].shift(-horizon) - df['Close']) / df['Close']
-    valid_rets = future_ret.dropna()
     
-    # Calculate global thresholds (Note: calculating over the whole dataset introduces 
-    # slight look-ahead bias, which is a common reason academic papers show 97% accuracy)
-    thresh_down = valid_rets.quantile(0.30)
-    thresh_up = valid_rets.quantile(0.65)
+    # 2. To avoid lookahead bias, our quantiles must be based ONLY on returns
+    # that have already "finished" by the current bar.
+    # A return starting at t-horizon finished at t.
+    past_rets = future_ret.shift(horizon)
     
+    # 3. Calculate rolling thresholds (e.g., over the last 1000 bars ~ 2 months of H1)
+    rolling_window = 1000
+    
+    # We use min_periods=100 so it can start labeling relatively early
+    thresh_down = past_rets.rolling(window=rolling_window, min_periods=100).quantile(0.30)
+    thresh_up = past_rets.rolling(window=rolling_window, min_periods=100).quantile(0.65)
+    
+    # For the very beginning of the dataset before min_periods, backfill to retain rows
+    thresh_down.bfill(inplace=True)
+    thresh_up.bfill(inplace=True)
+    
+    # 4. Apply dynamic labels
     labels = np.full(len(df), np.nan)
     labels[future_ret > thresh_up] = 0
     labels[future_ret <= thresh_down] = 1

@@ -146,7 +146,8 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
             generator = TimeSeriesWindowGenerator(
                 lookback=model_params["lookback"], 
                 batch_size=config["model"].get("batch_size", 64), 
-                feature_cols=list(feature_cols)
+                feature_cols=list(feature_cols),
+                scaler=scaler
             )
             # Create lightweight loaders for optimization
             train_loader, val_loader, _ = generator.prepare_loaders(
