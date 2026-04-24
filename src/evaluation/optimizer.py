@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import optuna
 from typing import Any, Dict
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import RobustScaler
 from backtesting import Backtest
 from src.data.data_module import DataModule
 from src.models.model_factory import ModelFactory
@@ -124,7 +124,7 @@ def run_optimization_study(config_path: str, n_trials: int = 50):
         X_train_raw = train_df.loc[valid_indices, feature_cols]
         
         # FIX: Instantiate and fit scaler inside objective to prevent NameError and Leakage
-        scaler = StandardScaler()
+        scaler = RobustScaler()
         X_train_scaled = scaler.fit_transform(X_train_raw)
 
         # Add input_dim for DL models

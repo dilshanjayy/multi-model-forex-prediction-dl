@@ -5,7 +5,7 @@ import json
 import yaml
 import re
 from sklearn.metrics import classification_report, accuracy_score
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import RobustScaler
 
 from src.data.data_module import DataModule
 from src.models.model_factory import ModelFactory
@@ -67,7 +67,7 @@ def run_baseline_training(
     y_val = val_df["Target"].to_numpy()
 
     # 4. Feature Scaling
-    scaler = StandardScaler()
+    scaler = RobustScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_val_scaled = scaler.transform(X_val)
 
