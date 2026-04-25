@@ -94,7 +94,8 @@ def run_baseline_training(
     model_params["input_dim"] = len(feature_cols)
     if config:
         data_config = config.get("data", {})
-        model_params["lookback"] = data_config.get("lookback", 60)
+        if "lookback" not in model_params:
+            model_params["lookback"] = data_config.get("lookback", 60)
         model_params["batch_size"] = model_config.get("batch_size", 64)
 
     # Use Factory to get model

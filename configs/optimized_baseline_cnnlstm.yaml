@@ -17,7 +17,6 @@ data:
         - 5
         - 12
         - 24
-    lookback: 120
     processed_dir: data/processed_market
     raw_input: data/raw_market/EURUSD_H1_20210501_20260331.csv
     train_split_pct: 0.6

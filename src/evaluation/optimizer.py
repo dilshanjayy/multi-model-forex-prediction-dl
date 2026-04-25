@@ -84,6 +84,11 @@ def run_optimization_study(config_path: str, n_trials: int = 50, metric: str = "
         model_params["input_dim"] = len(feature_cols)
         model_params["random_state"] = 42
         
+        # Safely extract lookback falling back to data config
+        lookback = model_params.get("lookback", config.get("data", {}).get("lookback", 60))
+        if "lookback" not in model_params:
+            model_params["lookback"] = lookback
+        
         # Prepare Data
         y_series = train_df[target_col].dropna()
         X_train_raw = train_df.loc[y_series.index, feature_cols]
@@ -96,7 +101,7 @@ def run_optimization_study(config_path: str, n_trials: int = 50, metric: str = "
         if isinstance(pretrained_model, PyTorchBaseModel):
             from src.data.window_generator import TimeSeriesWindowGenerator
             generator = TimeSeriesWindowGenerator(
-                lookback=model_params.get("lookback", 60),
+                lookback=lookback,
                 batch_size=config["model"].get("batch_size", 64),
                 feature_cols=list(feature_cols),
                 scaler=shared_scaler
