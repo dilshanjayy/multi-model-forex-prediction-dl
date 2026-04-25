@@ -89,43 +89,54 @@ def run_optimization_study(config_path: str, n_trials: int = 50, metric: str = "
                 target_col = f"Target_{h}h_{m}x_TBM"
 
         # 2. Hyperparameters for Model
-        model_params: Dict[str, Any] = {"random_state": 42}
-        
-        if model_type == "RandomForest":
-            est_range = search_space.get("n_estimators", [50, 300, 50])
-            model_params["n_estimators"] = trial.suggest_int("n_estimators", est_range[0], est_range[1], step=est_range[2] if len(est_range) > 2 else 1)
-            depth_range = search_space.get("max_depth", [5, 20])
-            model_params["max_depth"] = trial.suggest_int("max_depth", depth_range[0], depth_range[1])
-            model_params["class_weight"] = "balanced"
-            model_params["n_jobs"] = -1
-        
-        elif model_type == "Transformer":
-            model_params["d_model"] = trial.suggest_categorical("d_model", [32, 64, 128])
-            model_params["nhead"] = trial.suggest_categorical("nhead", [4, 8])
-            model_params["num_layers"] = trial.suggest_int("num_layers", 1, 3)
-            model_params["dropout"] = trial.suggest_float("dropout", 0.1, 0.4, step=0.1)
-            model_params["learning_rate"] = trial.suggest_float("learning_rate", 1e-4, 1e-2, log=True)
-            model_params["epochs"] = config["model"]["params"].get("epochs", 50)
-            model_params["lookback"] = trial.suggest_categorical("lookback", [60, 120, 240])
-        
-        elif model_type == "LSTM":
-            model_params["hidden_dim"] = trial.suggest_categorical("hidden_dim", [32, 64, 128, 256])
-            model_params["num_layers"] = trial.suggest_int("num_layers", 1, 4)
-            model_params["dropout"] = trial.suggest_float("dropout", 0.1, 0.5, step=0.1)
-            model_params["learning_rate"] = trial.suggest_float("learning_rate", 1e-4, 1e-2, log=True)
-            model_params["epochs"] = config["model"]["params"].get("epochs", 50)
-            model_params["lookback"] = trial.suggest_categorical("lookback", [60, 120, 240])
+        # CRITICAL QUANT FIX: If optimizing for Profit (Stage 2), we LOCK the architecture
+        # to the values in the config (the winners from Stage 1) and only tune the strategy.
+        if metric == "profit":
+            model_params: Dict[str, Any] = config["model"]["params"].copy()
+            model_params["random_state"] = 42
+            # Extract lookback from the frozen model params
+            lookback = model_params.get("lookback", 60)
+        else:
+            # Stage 1: Tune the architecture to find the best brain
+            model_params: Dict[str, Any] = {"random_state": 42}
+            
+            if model_type == "RandomForest":
+                est_range = search_space.get("n_estimators", [50, 300, 50])
+                model_params["n_estimators"] = trial.suggest_int("n_estimators", est_range[0], est_range[1], step=est_range[2] if len(est_range) > 2 else 1)
+                depth_range = search_space.get("max_depth", [5, 20])
+                model_params["max_depth"] = trial.suggest_int("max_depth", depth_range[0], depth_range[1])
+                model_params["class_weight"] = "balanced"
+                model_params["n_jobs"] = -1
+            
+            elif model_type == "Transformer":
+                model_params["d_model"] = trial.suggest_categorical("d_model", [32, 64, 128])
+                model_params["nhead"] = trial.suggest_categorical("nhead", [4, 8])
+                model_params["num_layers"] = trial.suggest_int("num_layers", 1, 3)
+                model_params["dropout"] = trial.suggest_float("dropout", 0.1, 0.4, step=0.1)
+                model_params["learning_rate"] = trial.suggest_float("learning_rate", 1e-4, 1e-2, log=True)
+                model_params["epochs"] = config["model"]["params"].get("epochs", 50)
+                model_params["lookback"] = trial.suggest_categorical("lookback", [60, 120, 240])
+            
+            elif model_type == "LSTM":
+                model_params["hidden_dim"] = trial.suggest_categorical("hidden_dim", [32, 64, 128, 256])
+                model_params["num_layers"] = trial.suggest_int("num_layers", 1, 4)
+                model_params["dropout"] = trial.suggest_float("dropout", 0.1, 0.5, step=0.1)
+                model_params["learning_rate"] = trial.suggest_float("learning_rate", 1e-4, 1e-2, log=True)
+                model_params["epochs"] = config["model"]["params"].get("epochs", 50)
+                model_params["lookback"] = trial.suggest_categorical("lookback", [60, 120, 240])
 
-        elif model_type == "CNN-LSTM":
-            model_params["cnn_filters_1"] = trial.suggest_categorical("cnn_filters_1", [16, 32, 64])
-            model_params["cnn_filters_2"] = trial.suggest_categorical("cnn_filters_2", [32, 64, 128])
-            model_params["lstm_units"] = trial.suggest_categorical("lstm_units", [32, 50, 100])
-            model_params["kernel_size"] = trial.suggest_int("kernel_size", 2, 5)
-            model_params["dropout"] = trial.suggest_float("dropout", 0.1, 0.4, step=0.1)
-            model_params["weight_decay"] = trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True)
-            model_params["learning_rate"] = trial.suggest_float("learning_rate", 1e-4, 1e-3, log=True)
-            model_params["epochs"] = config["model"]["params"].get("epochs", 50)
-            model_params["lookback"] = trial.suggest_categorical("lookback", [60, 120, 240])
+            elif model_type == "CNN-LSTM":
+                model_params["cnn_filters_1"] = trial.suggest_categorical("cnn_filters_1", [16, 32, 64])
+                model_params["cnn_filters_2"] = trial.suggest_categorical("cnn_filters_2", [32, 64, 128])
+                model_params["lstm_units"] = trial.suggest_categorical("lstm_units", [32, 50, 100])
+                model_params["kernel_size"] = trial.suggest_int("kernel_size", 2, 5)
+                model_params["dropout"] = trial.suggest_float("dropout", 0.1, 0.4, step=0.1)
+                model_params["weight_decay"] = trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True)
+                model_params["learning_rate"] = trial.suggest_float("learning_rate", 1e-4, 1e-3, log=True)
+                model_params["epochs"] = config["model"]["params"].get("epochs", 50)
+                model_params["lookback"] = trial.suggest_categorical("lookback", [60, 120, 240])
+            
+            lookback = model_params["lookback"]
 
         # 3. Hyperparameters for Strategy (Only tune if we are actually trading)
         if metric == "profit":
