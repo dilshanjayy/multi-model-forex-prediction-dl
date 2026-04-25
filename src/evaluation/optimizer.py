@@ -67,17 +67,26 @@ def run_optimization_study(config_path: str, n_trials: int = 50, metric: str = "
         set_seed(42)
 
         # 1. Hyperparameters for Data
-        h = trial.suggest_categorical("horizon", horizons)
-        
-        # Check if the baseline config uses Nguyen labels or TBM
-        base_target = config.get("model", {}).get("target", "TBM")
-        if "Nguyen" in base_target:
-            target_col = f"Target_{h}h_Nguyen"
-            # We still need an exit multiplier for the backtest strategy, even if it's not used in labeling
-            trial.suggest_categorical("label_atr_multiplier", atr_multipliers) # just to consume the parameter so it doesn't break logs
+        # CRITICAL QUANT FIX: If optimizing for Loss, the Target must be STATIC.
+        # Otherwise, Optuna will just pick the 'easiest' target (e.g. 1.0x ATR) to get a low score.
+        if metric == "loss":
+            target_col = config["model"]["target"]
+            # Extract h and m from the static target name for the backtester
+            import re
+            h_match = re.search(r"(\d+)h", target_col)
+            m_match = re.search(r"(\d+\.?\d*)x", target_col)
+            h = int(h_match.group(1)) if h_match else 24
+            # For Nguyen targets, m might be missing, default to a safe 2.0
+            m = float(m_match.group(1)) if m_match else 2.0
         else:
-            m = trial.suggest_categorical("label_atr_multiplier", atr_multipliers)
-            target_col = f"Target_{h}h_{m}x_TBM"
+            # When optimizing for Profit, we can search for the best target
+            h = trial.suggest_categorical("horizon", horizons)
+            base_target = config.get("model", {}).get("target", "TBM")
+            if "Nguyen" in base_target:
+                target_col = f"Target_{h}h_Nguyen"
+            else:
+                m = trial.suggest_categorical("label_atr_multiplier", atr_multipliers)
+                target_col = f"Target_{h}h_{m}x_TBM"
 
         # 2. Hyperparameters for Model
         model_params: Dict[str, Any] = {"random_state": 42}
@@ -118,12 +127,17 @@ def run_optimization_study(config_path: str, n_trials: int = 50, metric: str = "
             model_params["epochs"] = config["model"]["params"].get("epochs", 50)
             model_params["lookback"] = trial.suggest_categorical("lookback", [60, 120, 240])
 
-        # 3. Hyperparameters for Strategy
-        exit_range = search_space.get("exit_atr_multiplier", [1.0, 5.0, 0.5])
-        exit_atr_multiplier = trial.suggest_float("exit_atr_multiplier", exit_range[0], exit_range[1], step=exit_range[2] if len(exit_range) > 2 else None)
-        
-        conf_range = search_space.get("conf_threshold", [0.35, 0.55, 0.05])
-        conf_threshold = trial.suggest_float("conf_threshold", conf_range[0], conf_range[1], step=conf_range[2] if len(conf_range) > 2 else None)
+        # 3. Hyperparameters for Strategy (Only tune if we are actually trading)
+        if metric == "profit":
+            exit_range = search_space.get("exit_atr_multiplier", [1.0, 5.0, 0.5])
+            exit_atr_multiplier = trial.suggest_float("exit_atr_multiplier", exit_range[0], exit_range[1], step=exit_range[2] if len(exit_range) > 2 else None)
+            
+            conf_range = search_space.get("conf_threshold", [0.35, 0.55, 0.05])
+            conf_threshold = trial.suggest_float("conf_threshold", conf_range[0], conf_range[1], step=conf_range[2] if len(conf_range) > 2 else None)
+        else:
+            # Fixed defaults for loss optimization (not used in training)
+            exit_atr_multiplier = 1.5
+            conf_threshold = 0.50
 
         # 4. ALIGN DATA
         y_series = train_df[target_col].dropna()
