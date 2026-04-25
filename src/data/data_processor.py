@@ -114,6 +114,31 @@ def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     )
     df.ta.study(baseline_strategy)
 
+    # --- ADVANCED CONTEXT FEATURES ---
+    # Fix A: Volatility Normalization (Z-Score for Momentum)
+    # Tells the AI if an RSI of 70 is actually "abnormal" relative to the last 4 days (100 hours)
+    if "RSI_14" in df.columns:
+        rolling_mean = df["RSI_14"].rolling(window=100).mean()
+        rolling_std = df["RSI_14"].rolling(window=100).std()
+        df["RSI_14_Z"] = (df["RSI_14"] - rolling_mean) / (rolling_std + 1e-8)
+        df.drop(columns=["RSI_14"], inplace=True) # Replace original
+
+    # Fix B: Cyclical Time (Session Context)
+    # Neural networks struggle with 0-23 hours. Sine/Cosine makes the transition from 23 to 0 continuous.
+    hours = df["time"].dt.hour
+    df["Hour_Sin"] = np.sin(2 * np.pi * hours / 24)
+    df["Hour_Cos"] = np.cos(2 * np.pi * hours / 24)
+
+    # Fix C: Distance from "True Value" (Elasticity)
+    # How far has the price stretched away from the daily VWAP and the 50-hour trend?
+    if "VWAP_D" in df.columns:
+        df["Dist_VWAP"] = (df["Close"] - df["VWAP_D"]) / df["VWAP_D"]
+    
+    ema_50 = ta.ema(df["Close"], length=50)
+    if ema_50 is not None:
+        df["Dist_EMA_50"] = (df["Close"] - ema_50) / ema_50
+    # ---------------------------------
+
     # 4. Cleaning
     df.dropna(inplace=True)
     df = df[df["Volume"] > 0]
