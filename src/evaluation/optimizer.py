@@ -304,6 +304,3 @@ def run_optimization_study(config_path: str, n_trials: int = 50, metric: str = "
     print(f"You can now run: python main.py run --config {output_path}")
 
     return study
-thon main.py run --config {output_path}")
-
-    return study
