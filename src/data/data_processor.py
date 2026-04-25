@@ -137,7 +137,23 @@ def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     ema_50 = ta.ema(df["Close"], length=50)
     if ema_50 is not None:
         df["Dist_EMA_50"] = (df["Close"] - ema_50) / ema_50
-    # ---------------------------------
+
+    # --- DEEP ALPHA UPGRADE ---
+    # Fix D: Multi-Timeframe Momentum (Context from Big Players)
+    # Tells the AI if we are trading WITH or AGAINST the Daily/Weekly trend
+    df["Mom_D1"] = (df["Close"] - df["Close"].shift(24)) / df["Close"].shift(24) # 1 Day
+    df["Mom_W1"] = (df["Close"] - df["Close"].shift(120)) / df["Close"].shift(120) # 1 Week
+
+    # Fix E: Institutional Baseline (The 'Global' Support/Resistance)
+    ema_200 = ta.ema(df["Close"], length=200)
+    if ema_200 is not None:
+        df["Dist_EMA_200"] = (df["Close"] - ema_200) / ema_200
+
+    # Fix F: Volatility-Adjusted Volume (Denoising Activity)
+    v_mean = df["Volume"].rolling(window=100).mean()
+    v_std = df["Volume"].rolling(window=100).std()
+    df["Vol_Z"] = (df["Volume"] - v_mean) / (v_std + 1e-8)
+    # ---------------------------
 
     # 4. Cleaning
     df.dropna(inplace=True)

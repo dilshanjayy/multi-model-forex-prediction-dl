@@ -259,12 +259,17 @@ def run_optimization_study(config_path: str, n_trials: int = 50, metric: str = "
     # --- AUTO-SAVE OPTIMIZED CONFIG ---
     optimized_config = config.copy()
     
+    # Extract results safely (handling static parameters from Stage 1)
+    best_h = trial.params.get("horizon", config["data"].get("horizons", [24])[0])
+    best_m = trial.params.get("label_atr_multiplier", config["data"].get("atr_multipliers", [2.0])[0])
+
     # Update Data Section
     base_target = config.get("model", {}).get("target", "TBM")
     if "Nguyen" in base_target:
-        optimized_config["model"]["target"] = f"Target_{trial.params['horizon']}h_Nguyen"
+        optimized_config["model"]["target"] = f"Target_{best_h}h_Nguyen"
     else:
-        optimized_config["model"]["target"] = f"Target_{trial.params['horizon']}h_{trial.params['label_atr_multiplier']}x_TBM"
+        # If we optimized for loss, best_m might not be in trial.params, use original
+        optimized_config["model"]["target"] = f"Target_{best_h}h_{best_m}x_TBM"
     
     # Update Model Section (Model-Type Aware)
     if model_type == "RandomForest":
