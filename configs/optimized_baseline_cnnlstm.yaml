@@ -18,7 +18,7 @@ data:
         - 12
         - 24
     processed_dir: data/processed_market
-    raw_input: data/raw_market/EURUSD_H1_20210501_20260331.csv
+    raw_input: data/raw_market/EURUSD_H1_20160410_20260410.csv
     train_split_pct: 0.6
     val_split_pct: 0.2
 model:
