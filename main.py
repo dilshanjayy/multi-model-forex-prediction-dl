@@ -252,6 +252,7 @@ def main():
                 conf_threshold=config["backtest"].get("conf_threshold", 0.40),
                 output_dir=experiment_dir,
                 suffix="Validation",
+                config=config,
             )
 
         print(f"\n--- Experiment {config['project']['name']} Complete ---")
@@ -354,6 +355,7 @@ def main():
             conf_threshold=config["backtest"].get("conf_threshold", 0.40),
             output_dir=output_dir,
             suffix="TestSet_Final",
+            config=config,
         )
         print(f"--- Backtest Step Complete. Results saved to: {output_dir} ---")
 

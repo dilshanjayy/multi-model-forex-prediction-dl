@@ -16,7 +16,9 @@ def add_triple_barrier_labels(
         raise ValueError(f"Required column {atr_col} not found in DataFrame.")
 
     labels = []
-    prices = df["Close"].values
+    closes = df["Close"].values
+    highs = df["High"].values
+    lows = df["Low"].values
     atrs = df[atr_col].values
 
     # Triple Barrier Race
@@ -25,24 +27,27 @@ def add_triple_barrier_labels(
             labels.append(np.nan)
             continue
 
-        entry_price = prices[i]
+        entry_price = closes[i]
         current_atr = atrs[i]
 
         # Define barriers using ATR (Physical price distance)
         upper_barrier = entry_price + (current_atr * atr_multiplier)
         lower_barrier = entry_price - (current_atr * atr_multiplier)
 
-        # Look ahead 'horizon' periods
-        future_prices = prices[i + 1 : i + horizon + 1]
+        # Look ahead 'horizon' periods using High and Low
+        future_highs = highs[i + 1 : i + horizon + 1]
+        future_lows = lows[i + 1 : i + horizon + 1]
 
         found = False
-        for p in future_prices:
-            if p >= upper_barrier:
-                labels.append(0)  # Profit hit
+        for h, l in zip(future_highs, future_lows):
+            # Conservative trading rule: If both barriers are hit in the same hour, 
+            # assume Stop Loss was hit first to prevent false optimism.
+            if l <= lower_barrier:
+                labels.append(1)  # Loss hit
                 found = True
                 break
-            elif p <= lower_barrier:
-                labels.append(1)  # Loss hit
+            elif h >= upper_barrier:
+                labels.append(0)  # Profit hit
                 found = True
                 break
 

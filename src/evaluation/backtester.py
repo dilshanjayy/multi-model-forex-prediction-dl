@@ -31,6 +31,7 @@ def run_backtest_session(
     conf_threshold: float = 0.40,
     output_dir: str | None = None,
     suffix: str = "",
+    config: dict | None = None,
 ):
     """
     Generic runner for the 'Model Tournament'.
@@ -50,17 +51,31 @@ def run_backtest_session(
     df.sort_index(inplace=True)
 
     # 2. Filter for Test Period
-    # Ensure start_date and end_date are timezone-aware to match the index
-    print(f"Filtering data from {start_date} to {end_date if end_date else 'End'}...")
-
-    # Convert string dates to UTC-aware Timestamps and ensure normalized precision
-    start_ts = pd.to_datetime(start_date, utc=True).floor("s")
-    end_ts = pd.to_datetime(end_date, utc=True).floor("s") if end_date else None
-
-    if end_ts:
-        test_df = df[(df.index >= start_ts) & (df.index < end_ts)].copy()
+    if config and "train_split_pct" in config.get("data", {}):
+        train_pct = config["data"]["train_split_pct"]
+        val_pct = config["data"].get("val_split_pct", (1.0 - train_pct) / 2)
+        n_samples = len(df)
+        train_end = int(n_samples * train_pct)
+        val_end = int(n_samples * (train_pct + val_pct))
+        
+        if suffix == "Validation":
+            test_df = df.iloc[train_end:val_end].copy()
+            print(f"Filtering data by percentage (Validation Set)...")
+        else:
+            test_df = df.iloc[val_end:].copy()
+            print(f"Filtering data by percentage (Test Set)...")
     else:
-        test_df = df[df.index >= start_ts].copy()
+        # Ensure start_date and end_date are timezone-aware to match the index
+        print(f"Filtering data from {start_date} to {end_date if end_date else 'End'}...")
+
+        # Convert string dates to UTC-aware Timestamps and ensure normalized precision
+        start_ts = pd.to_datetime(start_date, utc=True).floor("s")
+        end_ts = pd.to_datetime(end_date, utc=True).floor("s") if end_date else None
+
+        if end_ts:
+            test_df = df[(df.index >= start_ts) & (df.index < end_ts)].copy()
+        else:
+            test_df = df[df.index >= start_ts].copy()
 
     print(f"Backtest dataset size: {len(test_df)} bars")
     if len(test_df) == 0:

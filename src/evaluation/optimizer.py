@@ -32,11 +32,22 @@ def run_optimization_study(config_path: str, n_trials: int = 50, metric: str = "
     df = dm.prepare_dataset(components=["technical_features", "targets", "metadata"])
     df.sort_index(inplace=True)
 
-    train_df = df[df.index < val_split_date].copy()
-    val_df_full = df[(df.index >= val_split_date) & (df.index < test_split_date)].copy()
+    if "train_split_pct" in config.get("data", {}):
+        train_pct = config["data"]["train_split_pct"]
+        val_pct = config["data"].get("val_split_pct", (1.0 - train_pct) / 2)
+        
+        n_samples = len(df)
+        train_end = int(n_samples * train_pct)
+        val_end = int(n_samples * (train_pct + val_pct))
+        
+        train_df = df.iloc[:train_end].copy()
+        val_df_full = df.iloc[train_end:val_end].copy()
+    else:
+        train_df = df[df.index < val_split_date].copy()
+        val_df_full = df[(df.index >= val_split_date) & (df.index < test_split_date)].copy()
 
     if len(train_df) == 0 or len(val_df_full) == 0:
-        raise ValueError("Train or Validation set is empty. Check your split dates.")
+        raise ValueError("Train or Validation set is empty. Check your split dates or percentages.")
 
     # Strict Feature Selection (Exact match with baseline_trainer.py)
     target_cols = [c for c in df.columns if "Target" in c or "LogRet" in c]
@@ -235,45 +246,48 @@ def run_optimization_study(config_path: str, n_trials: int = 50, metric: str = "
     # --- AUTO-SAVE OPTIMIZED CONFIG ---
     optimized_config = config.copy()
     
-    # Extract results safely (handling static parameters from Stage 1)
-    best_h = trial.params.get("horizon", config["data"].get("horizons", [24])[0])
-    best_m = trial.params.get("label_atr_multiplier", config["data"].get("atr_multipliers", [2.0])[0])
-
-    # Update Data Section
-    base_target = config.get("model", {}).get("target", "TBM")
-    if "Nguyen" in base_target:
-        optimized_config["model"]["target"] = f"Target_{best_h}h_Nguyen"
-    else:
-        # If we optimized for loss, best_m might not be in trial.params, use original
-        optimized_config["model"]["target"] = f"Target_{best_h}h_{best_m}x_TBM"
+    # Update Data Section (Only if tuned)
+    if "horizon" in trial.params:
+        best_h = trial.params["horizon"]
+        base_target = config.get("model", {}).get("target", "TBM")
+        if "Nguyen" in base_target:
+            optimized_config["model"]["target"] = f"Target_{best_h}h_Nguyen"
+        else:
+            best_m = trial.params.get("label_atr_multiplier", config["data"].get("atr_multipliers", [2.0])[0])
+            optimized_config["model"]["target"] = f"Target_{best_h}h_{best_m}x_TBM"
     
-    # Update Model Section (Model-Type Aware)
-    if model_type == "RandomForest":
-        optimized_config["model"]["params"]["n_estimators"] = trial.params["n_estimators"]
-        optimized_config["model"]["params"]["max_depth"] = trial.params["max_depth"]
-    elif model_type == "Transformer":
-        optimized_config["model"]["params"]["d_model"] = trial.params["d_model"]
-        optimized_config["model"]["params"]["nhead"] = trial.params["nhead"]
-        optimized_config["model"]["params"]["num_layers"] = trial.params["num_layers"]
-        optimized_config["model"]["params"]["dropout"] = trial.params["dropout"]
-        optimized_config["model"]["params"]["learning_rate"] = trial.params["learning_rate"]
-    elif model_type == "LSTM":
-        optimized_config["model"]["params"]["hidden_dim"] = trial.params["hidden_dim"]
-        optimized_config["model"]["params"]["num_layers"] = trial.params["num_layers"]
-        optimized_config["model"]["params"]["dropout"] = trial.params["dropout"]
-        optimized_config["model"]["params"]["learning_rate"] = trial.params["learning_rate"]
-    elif model_type == "CNN-LSTM":
-        optimized_config["model"]["params"]["cnn_filters_1"] = trial.params["cnn_filters_1"]
-        optimized_config["model"]["params"]["cnn_filters_2"] = trial.params["cnn_filters_2"]
-        optimized_config["model"]["params"]["lstm_units"] = trial.params["lstm_units"]
-        optimized_config["model"]["params"]["kernel_size"] = trial.params["kernel_size"]
-        optimized_config["model"]["params"]["dropout"] = trial.params["dropout"]
-        optimized_config["model"]["params"]["weight_decay"] = trial.params["weight_decay"]
-        optimized_config["model"]["params"]["learning_rate"] = trial.params["learning_rate"]
+    # Update Model Section (Only during Stage 1 - Loss)
+    if metric == "loss":
+        if model_type == "RandomForest":
+            optimized_config["model"]["params"]["n_estimators"] = trial.params["n_estimators"]
+            optimized_config["model"]["params"]["max_depth"] = trial.params["max_depth"]
+        elif model_type == "Transformer":
+            optimized_config["model"]["params"]["d_model"] = trial.params["d_model"]
+            optimized_config["model"]["params"]["nhead"] = trial.params["nhead"]
+            optimized_config["model"]["params"]["num_layers"] = trial.params["num_layers"]
+            optimized_config["model"]["params"]["dropout"] = trial.params["dropout"]
+            optimized_config["model"]["params"]["learning_rate"] = trial.params["learning_rate"]
+            optimized_config["model"]["params"]["lookback"] = trial.params["lookback"]
+        elif model_type == "LSTM":
+            optimized_config["model"]["params"]["hidden_dim"] = trial.params["hidden_dim"]
+            optimized_config["model"]["params"]["num_layers"] = trial.params["num_layers"]
+            optimized_config["model"]["params"]["dropout"] = trial.params["dropout"]
+            optimized_config["model"]["params"]["learning_rate"] = trial.params["learning_rate"]
+            optimized_config["model"]["params"]["lookback"] = trial.params["lookback"]
+        elif model_type == "CNN-LSTM":
+            optimized_config["model"]["params"]["cnn_filters_1"] = trial.params["cnn_filters_1"]
+            optimized_config["model"]["params"]["cnn_filters_2"] = trial.params["cnn_filters_2"]
+            optimized_config["model"]["params"]["lstm_units"] = trial.params["lstm_units"]
+            optimized_config["model"]["params"]["kernel_size"] = trial.params["kernel_size"]
+            optimized_config["model"]["params"]["dropout"] = trial.params["dropout"]
+            optimized_config["model"]["params"]["weight_decay"] = trial.params["weight_decay"]
+            optimized_config["model"]["params"]["learning_rate"] = trial.params["learning_rate"]
+            optimized_config["model"]["params"]["lookback"] = trial.params["lookback"]
     
-    # Update Backtest Section
-    optimized_config["backtest"]["atr_multiplier"] = trial.params["exit_atr_multiplier"]
-    optimized_config["backtest"]["conf_threshold"] = trial.params["conf_threshold"]
+    # Update Backtest Section (Always updated in Profit mode)
+    if metric == "profit":
+        optimized_config["backtest"]["atr_multiplier"] = trial.params["exit_atr_multiplier"]
+        optimized_config["backtest"]["conf_threshold"] = trial.params["conf_threshold"]
 
     # Save to file
     base_name = os.path.basename(config_path).replace(".yaml", "")

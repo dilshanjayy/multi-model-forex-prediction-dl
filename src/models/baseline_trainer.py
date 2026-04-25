@@ -28,12 +28,26 @@ def run_baseline_training(
     df.sort_index(inplace=True)
 
     # 1. Temporal Split
-    print(
-        f"Splitting data into Train (< {val_split_date}), Val ({val_split_date} to {test_split_date}), and Test (>= {test_split_date})..."
-    )
-    train_df = df[df.index < val_split_date].copy()
-    val_df = df[(df.index >= val_split_date) & (df.index < test_split_date)].copy()
-    test_df = df[df.index >= test_split_date].copy()
+    if config and "train_split_pct" in config.get("data", {}):
+        train_pct = config["data"]["train_split_pct"]
+        val_pct = config["data"].get("val_split_pct", (1.0 - train_pct) / 2)
+        test_pct = 1.0 - train_pct - val_pct
+        
+        n_samples = len(df)
+        train_end = int(n_samples * train_pct)
+        val_end = int(n_samples * (train_pct + val_pct))
+        
+        print(f"Splitting data chronologically by percentage: Train ({train_pct:.0%}), Val ({val_pct:.0%}), Test ({test_pct:.0%})...")
+        train_df = df.iloc[:train_end].copy()
+        val_df = df.iloc[train_end:val_end].copy()
+        test_df = df.iloc[val_end:].copy()
+    else:
+        print(
+            f"Splitting data into Train (< {val_split_date}), Val ({val_split_date} to {test_split_date}), and Test (>= {test_split_date})..."
+        )
+        train_df = df[df.index < val_split_date].copy()
+        val_df = df[(df.index >= val_split_date) & (df.index < test_split_date)].copy()
+        test_df = df[df.index >= test_split_date].copy()
 
     if len(train_df) == 0 or len(val_df) == 0 or len(test_df) == 0:
         print("Error: Split dates result in empty train, val, or test set.")
