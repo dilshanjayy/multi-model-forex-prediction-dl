@@ -67,13 +67,12 @@ def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     """
     df = dataframe.copy()
 
-    # --- NUCLEAR ALIGNMENT ---
-    # We must align the STARTING POINT before any math happens.
-    # This ensures recursive indicators (EMA, TSI) start from the exact same bar.
+    # --- DYNAMIC ALIGNMENT ---
+    # We ensure the index is sorted to prevent drift, but we no longer 
+    # hard-code a 2021 start date so your full 10-year history is preserved.
     df["time"] = pd.to_datetime(df["time"], utc=True)
     df.set_index("time", inplace=True, drop=False)
     df.sort_index(inplace=True)
-    df = df[df.index >= "2021-05-01"].copy() # Hard start 1 month before your 2021-06-01 goal
     # --------------------------
 
     # 1. Standardize column names
