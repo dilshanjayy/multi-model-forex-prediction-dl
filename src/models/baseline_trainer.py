@@ -41,6 +41,12 @@ def run_baseline_training(
         train_df = df.iloc[:train_end].copy()
         val_df = df.iloc[train_end:val_end].copy()
         test_df = df.iloc[val_end:].copy()
+        
+        print(f"--- Data Split Audit ---")
+        print(f"Train: {train_df.index[0]} to {train_df.index[-1]} ({len(train_df)} rows)")
+        print(f"Val:   {val_df.index[0]} to {val_df.index[-1]} ({len(val_df)} rows)")
+        print(f"Test:  {test_df.index[0]} to {test_df.index[-1]} ({len(test_df)} rows)")
+        print(f"------------------------")
     else:
         print(
             f"Splitting data into Train (< {val_split_date}), Val ({val_split_date} to {test_split_date}), and Test (>= {test_split_date})..."

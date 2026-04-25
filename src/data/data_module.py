@@ -37,6 +37,7 @@ class DataModule:
         if base_df is None or len(base_df) == 0:
             raise ValueError(f"Dataset preparation failed. Final rows: {0 if base_df is None else len(base_df)}. Check if component timestamps match.")
 
+        base_df.sort_index(inplace=True)
         print(f"Dataset prepared successfully: {len(base_df)} rows.")
         return base_df
 
