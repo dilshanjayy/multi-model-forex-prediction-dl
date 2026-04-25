@@ -164,9 +164,6 @@ def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     df = df[df["Volume"] > 0]
     df.ffill(inplace=True)
 
-    # Final Crop to the user-requested start date
-    df = df[df["time"] >= "2021-06-01"].copy()
-
     # 5. PURGE (Keep paper-specific features and engineered returns)
     df = purge_redundant_features(df)
 

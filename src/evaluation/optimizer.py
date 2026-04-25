@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import optuna
 from typing import Any, Dict
-from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import QuantileTransformer
 from backtesting import Backtest
 from src.data.data_module import DataModule
 from src.models.model_factory import ModelFactory
@@ -92,7 +92,7 @@ def run_optimization_study(config_path: str, n_trials: int = 50, metric: str = "
         # Prepare Data
         y_series = train_df[target_col].dropna()
         X_train_raw = train_df.loc[y_series.index, feature_cols]
-        shared_scaler = RobustScaler()
+        shared_scaler = QuantileTransformer(output_distribution='normal')
         X_train_scaled = shared_scaler.fit_transform(X_train_raw)
         
         pretrained_model = ModelFactory.get_model(model_type, model_params)
@@ -150,7 +150,7 @@ def run_optimization_study(config_path: str, n_trials: int = 50, metric: str = "
             # 4. ALIGN DATA & TRAIN (Stage 1 only)
             y_series_trial = train_df[target_col].dropna()
             X_train_raw_trial = train_df.loc[y_series_trial.index, feature_cols]
-            scaler = RobustScaler()
+            scaler = QuantileTransformer(output_distribution='normal')
             X_train_scaled_trial = scaler.fit_transform(X_train_raw_trial)
             
             model_params["input_dim"] = len(feature_cols)

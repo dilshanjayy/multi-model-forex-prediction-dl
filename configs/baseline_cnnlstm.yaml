@@ -5,7 +5,7 @@ project:
     timeframe: "H1"
 
 data:
-    raw_input: "data/raw_market/EURUSD_H1_20210501_20260331.csv"
+    raw_input: "data/raw_market/EURUSD_H1_20160410_20260410.csv"
     processed_dir: "data/processed_market"
     horizons: [5, 12, 24]
     atr_multipliers: [1.0, 1.5, 2.0, 2.5, 3.0]
