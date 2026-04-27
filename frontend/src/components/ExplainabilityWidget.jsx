@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 
 export default function ExplainabilityWidget({ runId }) {
+  // We can't easily see liveData here, but we can check the config via runId if needed
+  // For the demo gimmick, we will keep it simple.
   const [explanation, setExplanation] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);

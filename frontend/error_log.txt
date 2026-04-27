@@ -1,62 +1,274 @@
-react-dom_client.js?v=64265ce2:14337 Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
-content-script.js:22 Document already loaded, running initialization immediately
-content-script.js:4 Attempting to initialize AdUnit
-content-script.js:6 AdUnit initialized successfully
-(index):1 Access to fetch at 'http://localhost:8000/api/v1/explain/20260419_054219_forex-transformer-optimized' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
-:8000/api/v1/explain/20260419_054219_forex-transformer-optimized:1  Failed to load resource: net::ERR_FAILED
-ExplainabilityWidget.jsx:19 Error fetching explanation: TypeError: Failed to fetch
-    at ExplainabilityWidget.jsx:11:5
-    at Object.react_stack_bottom_frame (react-dom_client.js?v=64265ce2:12903:13)
-    at runWithFiberInDEV (react-dom_client.js?v=64265ce2:850:66)
-    at commitHookEffectListMount (react-dom_client.js?v=64265ce2:6616:153)
-    at commitHookPassiveMountEffects (react-dom_client.js?v=64265ce2:6651:55)
-    at commitPassiveMountOnFiber (react-dom_client.js?v=64265ce2:7617:22)
-    at recursivelyTraversePassiveMountEffects (react-dom_client.js?v=64265ce2:7605:5)
-    at commitPassiveMountOnFiber (react-dom_client.js?v=64265ce2:7671:14)
-    at recursivelyTraversePassiveMountEffects (react-dom_client.js?v=64265ce2:7605:5)
-    at commitPassiveMountOnFiber (react-dom_client.js?v=64265ce2:7671:14)
-(anonymous) @ ExplainabilityWidget.jsx:19
-(index):1 Access to fetch at 'http://localhost:8000/api/v1/explain/20260419_054219_forex-transformer-optimized' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
-:8000/api/v1/explain/20260419_054219_forex-transformer-optimized:1  Failed to load resource: net::ERR_FAILED
-ExplainabilityWidget.jsx:19 Error fetching explanation: TypeError: Failed to fetch
-    at ExplainabilityWidget.jsx:11:5
-    at Object.react_stack_bottom_frame (react-dom_client.js?v=64265ce2:12903:13)
-    at runWithFiberInDEV (react-dom_client.js?v=64265ce2:850:66)
-    at commitHookEffectListMount (react-dom_client.js?v=64265ce2:6616:153)
-    at commitHookPassiveMountEffects (react-dom_client.js?v=64265ce2:6651:55)
-    at reconnectPassiveEffects (react-dom_client.js?v=64265ce2:7700:6)
-    at recursivelyTraverseReconnectPassiveEffects (react-dom_client.js?v=64265ce2:7687:5)
-    at reconnectPassiveEffects (react-dom_client.js?v=64265ce2:7712:14)
-    at doubleInvokeEffectsOnFiber (react-dom_client.js?v=64265ce2:8923:125)
-    at runWithFiberInDEV (react-dom_client.js?v=64265ce2:850:66)
-(anonymous) @ ExplainabilityWidget.jsx:19
-:8000/api/v1/backtest/20260419_054219_forex-transformer-optimized:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
-(index):1 Access to fetch at 'http://localhost:8000/api/v1/explain/20260419_054219_forex-transformer-optimized' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
-:8000/api/v1/explain/20260419_054219_forex-transformer-optimized:1  Failed to load resource: net::ERR_FAILED
-ExplainabilityWidget.jsx:19 Error fetching explanation: TypeError: Failed to fetch
-    at ExplainabilityWidget.jsx:11:5
-    at Object.react_stack_bottom_frame (react-dom_client.js?v=64265ce2:12903:13)
-    at runWithFiberInDEV (react-dom_client.js?v=64265ce2:850:66)
-    at commitHookEffectListMount (react-dom_client.js?v=64265ce2:6616:153)
-    at commitHookPassiveMountEffects (react-dom_client.js?v=64265ce2:6651:55)
-    at commitPassiveMountOnFiber (react-dom_client.js?v=64265ce2:7617:22)
-    at recursivelyTraversePassiveMountEffects (react-dom_client.js?v=64265ce2:7605:5)
-    at commitPassiveMountOnFiber (react-dom_client.js?v=64265ce2:7671:14)
-    at recursivelyTraversePassiveMountEffects (react-dom_client.js?v=64265ce2:7605:5)
-    at commitPassiveMountOnFiber (react-dom_client.js?v=64265ce2:7671:14)
-(anonymous) @ ExplainabilityWidget.jsx:19
-(index):1 Access to fetch at 'http://localhost:8000/api/v1/explain/20260419_054219_forex-transformer-optimized' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
-:8000/api/v1/explain/20260419_054219_forex-transformer-optimized:1  Failed to load resource: net::ERR_FAILED
-ExplainabilityWidget.jsx:19 Error fetching explanation: TypeError: Failed to fetch
-    at ExplainabilityWidget.jsx:11:5
-    at Object.react_stack_bottom_frame (react-dom_client.js?v=64265ce2:12903:13)
-    at runWithFiberInDEV (react-dom_client.js?v=64265ce2:850:66)
-    at commitHookEffectListMount (react-dom_client.js?v=64265ce2:6616:153)
-    at commitHookPassiveMountEffects (react-dom_client.js?v=64265ce2:6651:55)
-    at reconnectPassiveEffects (react-dom_client.js?v=64265ce2:7700:6)
-    at recursivelyTraverseReconnectPassiveEffects (react-dom_client.js?v=64265ce2:7687:5)
-    at reconnectPassiveEffects (react-dom_client.js?v=64265ce2:7712:14)
-    at doubleInvokeEffectsOnFiber (react-dom_client.js?v=64265ce2:8923:125)
-    at runWithFiberInDEV (react-dom_client.js?v=64265ce2:850:66)
-(anonymous) @ ExplainabilityWidget.jsx:19
-:8000/api/v1/backtest/20260419_054219_forex-transformer-optimized:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+Access to fetch at 'http://localhost:8000/api/v1/news?limit=15' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+NewsTicker.jsx:8  GET http://localhost:8000/api/v1/news?limit=15 net::ERR_FAILED 500 (Internal Server Error)
+(anonymous) @ NewsTicker.jsx:8
+(anonymous) @ NewsTicker.jsx:14
+react_stack_bottom_frame @ react-dom_client.js?v=05d6df7b:12903
+runWithFiberInDEV @ react-dom_client.js?v=05d6df7b:850
+commitHookEffectListMount @ react-dom_client.js?v=05d6df7b:6616
+commitHookPassiveMountEffects @ react-dom_client.js?v=05d6df7b:6651
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7617
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7671
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7671
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7671
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7671
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7616
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7671
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7626
+flushPassiveEffects @ react-dom_client.js?v=05d6df7b:8807
+(anonymous) @ react-dom_client.js?v=05d6df7b:8561
+performWorkUntilDeadline @ react-dom_client.js?v=05d6df7b:35
+<NewsTicker>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=05d6df7b:192
+(anonymous) @ App.jsx:197
+react_stack_bottom_frame @ react-dom_client.js?v=05d6df7b:12867
+renderWithHooksAgain @ react-dom_client.js?v=05d6df7b:4267
+renderWithHooks @ react-dom_client.js?v=05d6df7b:4218
+updateFunctionComponent @ react-dom_client.js?v=05d6df7b:5568
+beginWork @ react-dom_client.js?v=05d6df7b:6139
+runWithFiberInDEV @ react-dom_client.js?v=05d6df7b:850
+performUnitOfWork @ react-dom_client.js?v=05d6df7b:8428
+workLoopSync @ react-dom_client.js?v=05d6df7b:8324
+renderRootSync @ react-dom_client.js?v=05d6df7b:8308
+performWorkOnRoot @ react-dom_client.js?v=05d6df7b:7956
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=05d6df7b:9058
+performWorkUntilDeadline @ react-dom_client.js?v=05d6df7b:35
+<App>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=05d6df7b:192
+(anonymous) @ main.jsx:8Understand this error
+NewsTicker.jsx:11 Error fetching news: TypeError: Failed to fetch
+    at fetchNews (NewsTicker.jsx:8:7)
+    at NewsTicker.jsx:14:5
+    at Object.react_stack_bottom_frame (react-dom_client.js?v=05d6df7b:12903:13)
+    at runWithFiberInDEV (react-dom_client.js?v=05d6df7b:850:66)
+    at commitHookEffectListMount (react-dom_client.js?v=05d6df7b:6616:153)
+    at commitHookPassiveMountEffects (react-dom_client.js?v=05d6df7b:6651:55)
+    at commitPassiveMountOnFiber (react-dom_client.js?v=05d6df7b:7617:22)
+    at recursivelyTraversePassiveMountEffects (react-dom_client.js?v=05d6df7b:7605:5)
+    at commitPassiveMountOnFiber (react-dom_client.js?v=05d6df7b:7671:14)
+    at recursivelyTraversePassiveMountEffects (react-dom_client.js?v=05d6df7b:7605:5)
+(anonymous) @ NewsTicker.jsx:11
+Promise.catch
+(anonymous) @ NewsTicker.jsx:11
+(anonymous) @ NewsTicker.jsx:14
+react_stack_bottom_frame @ react-dom_client.js?v=05d6df7b:12903
+runWithFiberInDEV @ react-dom_client.js?v=05d6df7b:850
+commitHookEffectListMount @ react-dom_client.js?v=05d6df7b:6616
+commitHookPassiveMountEffects @ react-dom_client.js?v=05d6df7b:6651
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7617
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7671
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7671
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7671
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7671
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7616
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7671
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7626
+flushPassiveEffects @ react-dom_client.js?v=05d6df7b:8807
+(anonymous) @ react-dom_client.js?v=05d6df7b:8561
+performWorkUntilDeadline @ react-dom_client.js?v=05d6df7b:35
+<NewsTicker>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=05d6df7b:192
+(anonymous) @ App.jsx:197
+react_stack_bottom_frame @ react-dom_client.js?v=05d6df7b:12867
+renderWithHooksAgain @ react-dom_client.js?v=05d6df7b:4267
+renderWithHooks @ react-dom_client.js?v=05d6df7b:4218
+updateFunctionComponent @ react-dom_client.js?v=05d6df7b:5568
+beginWork @ react-dom_client.js?v=05d6df7b:6139
+runWithFiberInDEV @ react-dom_client.js?v=05d6df7b:850
+performUnitOfWork @ react-dom_client.js?v=05d6df7b:8428
+workLoopSync @ react-dom_client.js?v=05d6df7b:8324
+renderRootSync @ react-dom_client.js?v=05d6df7b:8308
+performWorkOnRoot @ react-dom_client.js?v=05d6df7b:7956
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=05d6df7b:9058
+performWorkUntilDeadline @ react-dom_client.js?v=05d6df7b:35
+<App>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=05d6df7b:192
+(anonymous) @ main.jsx:8Understand this error
+(index):1 Access to fetch at 'http://localhost:8000/api/v1/news?limit=15' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.Understand this error
+NewsTicker.jsx:8  GET http://localhost:8000/api/v1/news?limit=15 net::ERR_FAILED 500 (Internal Server Error)
+(anonymous) @ NewsTicker.jsx:8
+(anonymous) @ NewsTicker.jsx:14
+react_stack_bottom_frame @ react-dom_client.js?v=05d6df7b:12903
+runWithFiberInDEV @ react-dom_client.js?v=05d6df7b:850
+commitHookEffectListMount @ react-dom_client.js?v=05d6df7b:6616
+commitHookPassiveMountEffects @ react-dom_client.js?v=05d6df7b:6651
+reconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7700
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7687
+reconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7712
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7687
+reconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7712
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7687
+reconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7712
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7687
+reconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7712
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7687
+reconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7699
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7687
+reconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7712
+doubleInvokeEffectsOnFiber @ react-dom_client.js?v=05d6df7b:8923
+runWithFiberInDEV @ react-dom_client.js?v=05d6df7b:850
+recursivelyTraverseAndDoubleInvokeEffectsInDEV @ react-dom_client.js?v=05d6df7b:8916
+commitDoubleInvokeEffectsInDEV @ react-dom_client.js?v=05d6df7b:8931
+flushPassiveEffects @ react-dom_client.js?v=05d6df7b:8808
+(anonymous) @ react-dom_client.js?v=05d6df7b:8561
+performWorkUntilDeadline @ react-dom_client.js?v=05d6df7b:35
+<NewsTicker>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=05d6df7b:192
+(anonymous) @ App.jsx:197
+react_stack_bottom_frame @ react-dom_client.js?v=05d6df7b:12867
+renderWithHooksAgain @ react-dom_client.js?v=05d6df7b:4267
+renderWithHooks @ react-dom_client.js?v=05d6df7b:4218
+updateFunctionComponent @ react-dom_client.js?v=05d6df7b:5568
+beginWork @ react-dom_client.js?v=05d6df7b:6139
+runWithFiberInDEV @ react-dom_client.js?v=05d6df7b:850
+performUnitOfWork @ react-dom_client.js?v=05d6df7b:8428
+workLoopSync @ react-dom_client.js?v=05d6df7b:8324
+renderRootSync @ react-dom_client.js?v=05d6df7b:8308
+performWorkOnRoot @ react-dom_client.js?v=05d6df7b:7956
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=05d6df7b:9058
+performWorkUntilDeadline @ react-dom_client.js?v=05d6df7b:35
+<App>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=05d6df7b:192
+(anonymous) @ main.jsx:8Understand this error
+NewsTicker.jsx:11 Error fetching news: TypeError: Failed to fetch
+    at fetchNews (NewsTicker.jsx:8:7)
+    at NewsTicker.jsx:14:5
+    at Object.react_stack_bottom_frame (react-dom_client.js?v=05d6df7b:12903:13)
+    at runWithFiberInDEV (react-dom_client.js?v=05d6df7b:850:66)
+    at commitHookEffectListMount (react-dom_client.js?v=05d6df7b:6616:153)
+    at commitHookPassiveMountEffects (react-dom_client.js?v=05d6df7b:6651:55)
+    at reconnectPassiveEffects (react-dom_client.js?v=05d6df7b:7700:6)
+    at recursivelyTraverseReconnectPassiveEffects (react-dom_client.js?v=05d6df7b:7687:5)
+    at reconnectPassiveEffects (react-dom_client.js?v=05d6df7b:7712:14)
+    at recursivelyTraverseReconnectPassiveEffects (react-dom_client.js?v=05d6df7b:7687:5)
+(anonymous) @ NewsTicker.jsx:11
+Promise.catch
+(anonymous) @ NewsTicker.jsx:11
+(anonymous) @ NewsTicker.jsx:14
+react_stack_bottom_frame @ react-dom_client.js?v=05d6df7b:12903
+runWithFiberInDEV @ react-dom_client.js?v=05d6df7b:850
+commitHookEffectListMount @ react-dom_client.js?v=05d6df7b:6616
+commitHookPassiveMountEffects @ react-dom_client.js?v=05d6df7b:6651
+reconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7700
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7687
+reconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7712
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7687
+reconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7712
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7687
+reconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7712
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7687
+reconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7712
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7687
+reconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7699
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7687
+reconnectPassiveEffects @ react-dom_client.js?v=05d6df7b:7712
+doubleInvokeEffectsOnFiber @ react-dom_client.js?v=05d6df7b:8923
+runWithFiberInDEV @ react-dom_client.js?v=05d6df7b:850
+recursivelyTraverseAndDoubleInvokeEffectsInDEV @ react-dom_client.js?v=05d6df7b:8916
+commitDoubleInvokeEffectsInDEV @ react-dom_client.js?v=05d6df7b:8931
+flushPassiveEffects @ react-dom_client.js?v=05d6df7b:8808
+(anonymous) @ react-dom_client.js?v=05d6df7b:8561
+performWorkUntilDeadline @ react-dom_client.js?v=05d6df7b:35
+<NewsTicker>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=05d6df7b:192
+(anonymous) @ App.jsx:197
+react_stack_bottom_frame @ react-dom_client.js?v=05d6df7b:12867
+renderWithHooksAgain @ react-dom_client.js?v=05d6df7b:4267
+renderWithHooks @ react-dom_client.js?v=05d6df7b:4218
+updateFunctionComponent @ react-dom_client.js?v=05d6df7b:5568
+beginWork @ react-dom_client.js?v=05d6df7b:6139
+runWithFiberInDEV @ react-dom_client.js?v=05d6df7b:850
+performUnitOfWork @ react-dom_client.js?v=05d6df7b:8428
+workLoopSync @ react-dom_client.js?v=05d6df7b:8324
+renderRootSync @ react-dom_client.js?v=05d6df7b:8308
+performWorkOnRoot @ react-dom_client.js?v=05d6df7b:7956
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=05d6df7b:9058
+performWorkUntilDeadline @ react-dom_client.js?v=05d6df7b:35
+<App>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=05d6df7b:192
+(anonymous) @ main.jsx:8Understand this error
+App.jsx:62  POST http://localhost:8000/api/v1/predict/20260426_multi_modal_cnnlstm 500 (Internal Server Error)
+(anonymous) @ App.jsx:62
+(anonymous) @ App.jsx:52
+react_stack_bottom_frame @ react-dom_client.js?v=05d6df7b:12903
+runWithFiberInDEV @ react-dom_client.js?v=05d6df7b:850
+commitHookEffectListMount @ react-dom_client.js?v=05d6df7b:6616
+commitHookPassiveMountEffects @ react-dom_client.js?v=05d6df7b:6651
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7617
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7671
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=05d6df7b:7605
+commitPassiveMountOnFiber @ react-dom_client.js?v=05d6df7b:7626
+flushPassiveEffects @ react-dom_client.js?v=05d6df7b:8807
+flushPendingEffects @ react-dom_client.js?v=05d6df7b:8768
+flushSpawnedWork @ react-dom_client.js?v=05d6df7b:8746
+commitRoot @ react-dom_client.js?v=05d6df7b:8584
+commitRootWhenReady @ react-dom_client.js?v=05d6df7b:8078
+performWorkOnRoot @ react-dom_client.js?v=05d6df7b:8050
+performSyncWorkOnRoot @ react-dom_client.js?v=05d6df7b:9066
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=05d6df7b:8983
+processRootScheduleInMicrotask @ react-dom_client.js?v=05d6df7b:9004
+(anonymous) @ react-dom_client.js?v=05d6df7b:9077
+<App>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=05d6df7b:192
+(anonymous) @ main.jsx:8Understand this error
+OrderTicket.jsx:76 Uncaught TypeError: Cannot read properties of undefined (reading 'toFixed')
+    at OrderTicket (OrderTicket.jsx:76:102)
+    at Object.react_stack_bottom_frame (react-dom_client.js?v=05d6df7b:12867:12)
+    at renderWithHooks (react-dom_client.js?v=05d6df7b:4212:19)
+    at updateFunctionComponent (react-dom_client.js?v=05d6df7b:5568:16)
+    at beginWork (react-dom_client.js?v=05d6df7b:6139:20)
+    at runWithFiberInDEV (react-dom_client.js?v=05d6df7b:850:66)
+    at performUnitOfWork (react-dom_client.js?v=05d6df7b:8428:92)
+    at workLoopSync (react-dom_client.js?v=05d6df7b:8324:37)
+    at renderRootSync (react-dom_client.js?v=05d6df7b:8308:6)
+    at performWorkOnRoot (react-dom_client.js?v=05d6df7b:7993:27)
+(anonymous) @ OrderTicket.jsx:76
+react_stack_bottom_frame @ react-dom_client.js?v=05d6df7b:12867
+renderWithHooks @ react-dom_client.js?v=05d6df7b:4212
+updateFunctionComponent @ react-dom_client.js?v=05d6df7b:5568
+beginWork @ react-dom_client.js?v=05d6df7b:6139
+runWithFiberInDEV @ react-dom_client.js?v=05d6df7b:850
+performUnitOfWork @ react-dom_client.js?v=05d6df7b:8428
+workLoopSync @ react-dom_client.js?v=05d6df7b:8324
+renderRootSync @ react-dom_client.js?v=05d6df7b:8308
+performWorkOnRoot @ react-dom_client.js?v=05d6df7b:7993
+performSyncWorkOnRoot @ react-dom_client.js?v=05d6df7b:9066
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=05d6df7b:8983
+processRootScheduleInMicrotask @ react-dom_client.js?v=05d6df7b:9004
+(anonymous) @ react-dom_client.js?v=05d6df7b:9077
+<OrderTicket>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=05d6df7b:192
+(anonymous) @ App.jsx:246
+react_stack_bottom_frame @ react-dom_client.js?v=05d6df7b:12867
+renderWithHooksAgain @ react-dom_client.js?v=05d6df7b:4267
+renderWithHooks @ react-dom_client.js?v=05d6df7b:4218
+updateFunctionComponent @ react-dom_client.js?v=05d6df7b:5568
+beginWork @ react-dom_client.js?v=05d6df7b:6139
+runWithFiberInDEV @ react-dom_client.js?v=05d6df7b:850
+performUnitOfWork @ react-dom_client.js?v=05d6df7b:8428
+workLoopSync @ react-dom_client.js?v=05d6df7b:8324
+renderRootSync @ react-dom_client.js?v=05d6df7b:8308
+performWorkOnRoot @ react-dom_client.js?v=05d6df7b:7956
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=05d6df7b:9058
+performWorkUntilDeadline @ react-dom_client.js?v=05d6df7b:35
+<App>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=05d6df7b:192
+(anonymous) @ main.jsx:8Understand this error
+App.jsx:246 An error occurred in the <OrderTicket> component.
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries.

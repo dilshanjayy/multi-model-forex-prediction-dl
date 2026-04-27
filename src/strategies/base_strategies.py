@@ -66,6 +66,13 @@ class MLBaseStrategy(Strategy):
         else:
             self.atr = None
 
+        # DEMO FIX: Restore missing columns for older model weights during backtest
+        if "RSI_14" not in self.data.df.columns and "RSI_14_Z" in self.data.df.columns:
+            self.data.df["RSI_14"] = self.data.df["RSI_14_Z"] * 10 + 50
+        
+        if "real_volume" in self.feature_cols and "real_volume" not in self.data.df.columns:
+            self.data.df["real_volume"] = 0.0
+
         # Pre-calculate features and ALL predictions at once (Bulk Inference)
         # This is the single biggest speed optimization for ML backtesting
         self.prepared_data = self.data.df[self.feature_cols]

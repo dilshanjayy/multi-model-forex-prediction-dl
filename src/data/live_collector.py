@@ -1,40 +1,31 @@
 # type: ignore
 import MetaTrader5 as mt5
 import pandas as pd
-import numpy as np
-from datetime import datetime
-from src.data.data_processor import generate_features
+from src.data.data_processor import run_pipeline
 
-def fetch_live_data(symbol: str, timeframe_str: str, count: int = 300) -> pd.DataFrame | None:
+
+def fetch_live_data(
+    symbol: str, timeframe_str: str, count: int = 300, pipeline_name: str = "default"
+) -> pd.DataFrame | None:
     """
     Fetches the latest N bars from MT5 and returns an engineered DataFrame.
-    If MT5 is not available (e.g., Linux/Colab), falls back to the most recent Parquet data.
+    Returns None if MT5 is not available or if the market is closed (no rates fetched).
     """
     if mt5 is None or not mt5.initialize():
-        print("MT5 Initialization failed or unsupported OS. Falling back to local Parquet data.")
-        try:
-            import os
-            processed_dir = "data/processed_market"
-            features = pd.read_parquet(os.path.join(processed_dir, "technical_features.parquet"))
-            metadata = pd.read_parquet(os.path.join(processed_dir, "metadata.parquet"))
-            if "time" in metadata.columns:
-                metadata.set_index("time", inplace=True)
-            df = features.join(metadata, how="inner")
-            # Reset index to match MT5 format where 'time' is a column before generate_features
-            df = df.reset_index()
-            # If we don't need to run generate_features (since it's already engineered):
-            return df.tail(count)
-        except Exception as e:
-            print(f"Fallback failed: {e}")
-            return None
+        print("MT5 Initialization failed or unsupported OS.")
+        return None
 
     # Map timeframe string to MT5 enum
     tf_map = {
-        "M1": mt5.TIMEFRAME_M1, "M5": mt5.TIMEFRAME_M5, "M15": mt5.TIMEFRAME_M15,
-        "M30": mt5.TIMEFRAME_M30, "H1": mt5.TIMEFRAME_H1, "H4": mt5.TIMEFRAME_H4,
-        "D1": mt5.TIMEFRAME_D1
+        "M1": mt5.TIMEFRAME_M1,
+        "M5": mt5.TIMEFRAME_M5,
+        "M15": mt5.TIMEFRAME_M15,
+        "M30": mt5.TIMEFRAME_M30,
+        "H1": mt5.TIMEFRAME_H1,
+        "H4": mt5.TIMEFRAME_H4,
+        "D1": mt5.TIMEFRAME_D1,
     }
-    
+
     tf = tf_map.get(timeframe_str.upper())
     if tf is None:
         return None
@@ -47,12 +38,17 @@ def fetch_live_data(symbol: str, timeframe_str: str, count: int = 300) -> pd.Dat
     df = pd.DataFrame(rates)
     # Convert broker time (seconds) to datetime
     df['time'] = pd.to_datetime(df['time'], unit='s')
-    
-    # Ensure it is treated as UTC (MT5 server time is usually UTC+2/3, 
-    # but the API allows us to treat it as UTC for consistent charting)
-    df["time"] = df["time"].dt.tz_localize('UTC')
-    
-    # Feature Engineering in-memory
-    enriched_df = generate_features(df)
-    
+
+    # 1. Shift broker time back 7 hours to get the equivalent New York time
+    df["time"] = df["time"] - pd.Timedelta(hours=7)
+
+    # 2. Localize as US/Eastern (which handles US DST perfectly)
+    df["time"] = df["time"].dt.tz_localize("US/Eastern", ambiguous='infer')
+
+    # 3. Convert to true UTC to match model training features
+    df["time"] = df["time"].dt.tz_convert('UTC')
+
+    # Feature Engineering in-memory using named pipeline
+    enriched_df = run_pipeline(pipeline_name, df)
+
     return enriched_df

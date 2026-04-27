@@ -9,11 +9,17 @@ export default function ChartWidget({ data, atr, atrMultiplier }) {
     if (!chartContainerRef.current) return;
 
     const chart = createChart(chartContainerRef.current, {
+      autoSize: true,
       layout: { background: { type: 'solid', color: '#06090f' }, textColor: '#8b949e' },
       grid: { vertLines: { visible: false }, horzLines: { color: '#1c2128' } },
       rightPriceScale: { borderColor: '#30363d' },
-      timeScale: { borderColor: '#30363d', timeVisible: true },
-      height: 500,
+      timeScale: { 
+          borderColor: '#30363d', 
+          timeVisible: true,
+          rightOffset: 12,
+          barSpacing: 6,
+          fixLeftEdge: true,
+      },
     });
     
     chartRef.current = chart;

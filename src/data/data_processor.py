@@ -39,8 +39,8 @@ def add_triple_barrier_labels(
         future_lows = lows[i + 1 : i + horizon + 1]
 
         found = False
-        for h, l in zip(future_highs, future_lows):
-            # Conservative trading rule: If both barriers are hit in the same hour, 
+        for h, l in zip(future_highs, future_lows):  # noqa: E741
+            # Conservative trading rule: If both barriers are hit in the same hour,
             # assume Stop Loss was hit first to prevent false optimism.
             if l <= lower_barrier:
                 labels.append(1)  # Loss hit
@@ -68,7 +68,7 @@ def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     df = dataframe.copy()
 
     # --- DYNAMIC ALIGNMENT ---
-    # We ensure the index is sorted to prevent drift, but we no longer 
+    # We ensure the index is sorted to prevent drift, but we no longer
     # hard-code a 2021 start date so your full 10-year history is preserved.
     df["time"] = pd.to_datetime(df["time"], utc=True)
     df.set_index("time", inplace=True, drop=False)
@@ -86,6 +86,10 @@ def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
         },
         inplace=True,
     )
+    
+    # DROP REAL_VOLUME: User requested complete removal
+    if "real_volume" in df.columns:
+        df.drop(columns=["real_volume"], inplace=True)
 
     # 2. RELATIVE OHLCV (Essential for LSTM/CNN)
     # Nguyen et al. use OHLCV, but for H1 we must use relative returns to ensure stationarity
@@ -114,6 +118,10 @@ def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
             {"kind": "stochrsi"},
             {"kind": "adx"},
             {"kind": "stoch"},
+            {"kind": "chop"},
+            {"kind": "er"},
+            {"kind": "kc"},
+            {"kind": "stc"},
         ],
     )
     df.ta.study(baseline_strategy)
@@ -137,8 +145,8 @@ def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     # How far has the price stretched away from the daily VWAP and the 50-hour trend?
     if "VWAP_D" in df.columns:
         df["Dist_VWAP"] = (df["Close"] - df["VWAP_D"]) / df["VWAP_D"]
-    
-    ema_50 = ta.ema(df["Close"], length=50)
+
+    ema_50 = ta.ema(df["Close"], length=50) # type: ignore
     if ema_50 is not None:
         df["Dist_EMA_50"] = (df["Close"] - ema_50) / ema_50
 
@@ -149,7 +157,7 @@ def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     df["Mom_W1"] = (df["Close"] - df["Close"].shift(120)) / df["Close"].shift(120) # 1 Week
 
     # Fix E: Institutional Baseline (The 'Global' Support/Resistance)
-    ema_200 = ta.ema(df["Close"], length=200)
+    ema_200 = ta.ema(df["Close"], length=200) # type: ignore
     if ema_200 is not None:
         df["Dist_EMA_200"] = (df["Close"] - ema_200) / ema_200
 
@@ -180,29 +188,29 @@ def add_nguyen_labels(df: pd.DataFrame, horizon: int = 24) -> pd.DataFrame:
     """
     # 1. Calculate future returns
     future_ret = (df['Close'].shift(-horizon) - df['Close']) / df['Close']
-    
+
     # 2. To avoid lookahead bias, our quantiles must be based ONLY on returns
     # that have already "finished" by the current bar.
     # A return starting at t-horizon finished at t.
     past_rets = future_ret.shift(horizon)
-    
+
     # 3. Calculate rolling thresholds (e.g., over the last 1000 bars ~ 2 months of H1)
     rolling_window = 1000
-    
+
     # We use min_periods=100 so it can start labeling relatively early
     thresh_down = past_rets.rolling(window=rolling_window, min_periods=100).quantile(0.30)
     thresh_up = past_rets.rolling(window=rolling_window, min_periods=100).quantile(0.65)
-    
+
     # For the very beginning of the dataset before min_periods, backfill to retain rows
     thresh_down.bfill(inplace=True)
     thresh_up.bfill(inplace=True)
-    
+
     # 4. Apply dynamic labels
     labels = np.full(len(df), np.nan)
     labels[future_ret > thresh_up] = 0
     labels[future_ret <= thresh_down] = 1
     labels[(future_ret > thresh_down) & (future_ret <= thresh_up)] = 2
-    
+
     col_name = f"Target_{horizon}h_Nguyen"
     df[col_name] = labels
     return df
@@ -224,7 +232,7 @@ def generate_targets(
     for h in horizons:
         # Add Nguyen et al. Quantile Labels
         df = add_nguyen_labels(df, horizon=h)
-        
+
         # Add TBM Labels
         for m in atr_multipliers:
             df = add_triple_barrier_labels(df, horizon=h, atr_multiplier=m)
@@ -285,7 +293,7 @@ def purge_redundant_features(df: pd.DataFrame) -> pd.DataFrame:
         "BBM_5_2.0_2.0",  # 1.0 correlation with VWAP_D
         "KCLe_20_2",
         "KCUe_20_2",
-        "KCMe_20_2",  # Purge price-level Keltner components
+        # "KCMe_20_2",  # We used to drop KCMe/KCBe, but Technical_LSTM needs KCBe_20_2
         "ADXR_14_2",  # 0.99 correlation with ADX
         "spread",  # not a technical indicator and may introduce noise
     ]
@@ -294,3 +302,22 @@ def purge_redundant_features(df: pd.DataFrame) -> pd.DataFrame:
     df.drop(columns=existing_cols, inplace=True)
 
     return df
+
+
+# --- NAMED FEATURE PIPELINES ---
+
+FEATURE_PIPELINES = {
+    "default": generate_features,
+    "nguyen_2024": generate_features,
+}
+
+
+def run_pipeline(name: str, df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Safely dispatches to a named feature generation function.
+    Falls back to 'default' if the name is not found.
+    """
+    pipeline_func = FEATURE_PIPELINES.get(name, FEATURE_PIPELINES["default"])
+    if name not in FEATURE_PIPELINES:
+        print(f"Warning: Feature pipeline '{name}' not found. Falling back to 'default'.")
+    return pipeline_func(df)

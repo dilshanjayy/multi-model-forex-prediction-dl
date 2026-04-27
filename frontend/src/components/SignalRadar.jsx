@@ -14,26 +14,37 @@ export default function SignalRadar({ liveData }) {
   const color = getStatusColor();
 
   return (
-    <div className="pane h-full">
+    <div className="pane border-b border-[#30363d] flex-1">
       <div className="pane-header">ALGO STANCE</div>
       <div className="pane-content flex flex-col items-center justify-center space-y-6">
         {/* Signal HUD */}
         <div className="relative w-32 h-32 flex items-center justify-center">
-            <div 
-                className="absolute inset-0 rounded-full border-4 border-[#30363d] opacity-20"
-                style={{ borderColor: color }}
-            ></div>
-            <div 
-                className="absolute inset-0 rounded-full border-4 transition-all duration-1000 ease-out"
-                style={{ 
-                    borderColor: color, 
-                    clipPath: `inset(${100 - (confidence * 100)}% 0 0 0)`,
-                    filter: `drop-shadow(0 0 8px ${color})`
-                }}
-            ></div>
-            <div className="text-center z-10">
-                <p className="text-[10px] text-[#8b949e] uppercase font-bold tracking-tighter">CONFIDENCE</p>
-                <p className="text-xl font-bold value-mono" style={{ color }}>{(confidence * 100).toFixed(1)}%</p>
+            {/* Background Track */}
+            <svg className="absolute inset-0 w-full h-full -rotate-90">
+                <circle cx="64" cy="64" r="54" fill="none" stroke="#30363d" strokeWidth="6" strokeDasharray="339.3" strokeDashoffset="0" strokeLinecap="round" opacity="0.3" />
+            </svg>
+            
+            {/* Precision Progress Line */}
+            <svg className="absolute inset-0 w-full h-full -rotate-90 transition-all duration-1000 ease-out">
+                <circle 
+                    cx="64" cy="64" r="54" fill="none" 
+                    stroke={color} 
+                    strokeWidth="6" 
+                    strokeDasharray="339.3" 
+                    strokeDashoffset={339.3 - (confidence * 339.3)} 
+                    strokeLinecap="round" 
+                    style={{ 
+                        filter: `drop-shadow(0 0 3px ${color})`,
+                    }}
+                />
+            </svg>
+
+            {/* Inner Depth Shadow */}
+            <div className="absolute w-24 h-24 rounded-full bg-[#0d1117] shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] flex items-center justify-center">
+                <div className="text-center z-10">
+                    <p className="text-[10px] text-[#8b949e] uppercase font-black tracking-widest opacity-80">CONFIDENCE</p>
+                    <p className="text-xl font-bold value-mono leading-none mt-1" style={{ color }}>{(confidence * 100).toFixed(1)}%</p>
+                </div>
             </div>
         </div>
 
