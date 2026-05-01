@@ -64,6 +64,4 @@ def execute_market_order(symbol: str, lot_size: float, direction: str, atr: floa
     if result.retcode != mt5.TRADE_RETCODE_DONE:
         return {"status": "error", "message": f"Order failed [{result.retcode}]: {result.comment}"}
 
-    return {"status": "success", "deal": result.deal, "price": result.price}
-
-    return {"status": "success", "deal": result.deal, "price": result.price}
+    return {"status": "success", "deal": result.deal, "order": result.order, "price": result.price}

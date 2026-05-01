@@ -18,4 +18,22 @@ export const useStore = create((set) => ({
 
   lotSize: 0.1,
   setLotSize: (size) => set({ lotSize: size }),
+
+  token: localStorage.getItem('token') || null,
+  setToken: (token) => {
+    if (token) {
+      localStorage.setItem('token', token);
+    } else {
+      localStorage.removeItem('token');
+    }
+    set({ token });
+  },
+
+  user: null,
+  setUser: (user) => set({ user }),
+  
+  logout: () => {
+    localStorage.removeItem('token');
+    set({ token: null, user: null });
+  },
 }));

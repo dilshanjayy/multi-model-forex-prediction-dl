@@ -3,12 +3,17 @@ import json
 import joblib
 import yaml
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from src.data.live_collector import fetch_live_data
 from src.execution.trader import execute_market_order
 from src.evaluation.backtester import run_backtest_session
+
+from backend.db.database import get_db
+from backend.db import models, schemas
+from backend.api.auth import get_current_user
 
 router = APIRouter()
 
@@ -430,7 +435,7 @@ def get_live_explanation(run_id: str, symbol: str = "EURUSD", timeframe: str = "
 
 
 @router.post("/trade")
-def execute_trade(req: TradeRequest):
+def execute_trade(req: TradeRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     """Executes a market order via MT5."""
     res = execute_market_order(
         symbol=req.symbol,
@@ -443,8 +448,138 @@ def execute_trade(req: TradeRequest):
     if res["status"] == "error":
         raise HTTPException(status_code=400, detail=res["message"])
 
+    # Extract price from response if available, or just mock it to 0.0 for now if not returned
+    executed_price = float(res.get("price", 0.0))
+    order_ticket = res.get("order", None)
+
+    # Save to database
+    new_trade = models.Trade(
+        user_id=current_user.id,
+        symbol=req.symbol,
+        direction=req.direction,
+        price=executed_price,
+        lot_size=float(req.lot_size),
+        model_used="Live Execution",  # Could be passed from frontend
+        pnl=0.0, # Initial PnL is 0
+        mt5_order_ticket=order_ticket,
+        status="OPEN"
+    )
+    db.add(new_trade)
+    db.commit()
+    db.refresh(new_trade)
+
     return res
 
+@router.post("/portfolio/sync")
+def sync_portfolio(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """Syncs open and closed trades with MT5."""
+    import MetaTrader5 as mt5
+    from datetime import datetime, timedelta
+
+    if not mt5.initialize():
+        print("MT5 Sync Failed: Initialization failed")
+        raise HTTPException(status_code=500, detail="MT5 Initialization failed")
+    
+    try:
+        open_trades = db.query(models.Trade).filter(
+            models.Trade.user_id == current_user.id, 
+            models.Trade.status == "OPEN"
+        ).all()
+
+        if not open_trades:
+            return {"status": "success", "message": "No open trades to sync"}
+
+        # Get all active positions
+        positions = mt5.positions_get()
+        # MT5 positions usually match via 'ticket' or 'identifier'
+        active_positions = {}
+        if positions:
+            for p in positions:
+                active_positions[p.ticket] = p
+                active_positions[p.identifier] = p
+
+        # Get historical deals to find closed positions
+        # Use a wide range to be safe
+        date_from = datetime.now() - timedelta(days=30)
+        date_to = datetime.now() + timedelta(days=1)
+        deals = mt5.history_deals_get(date_from, date_to)
+        
+        deals_by_position = {}
+        if deals:
+            for d in deals:
+                pos_id = getattr(d, 'position_id', 0)
+                if pos_id != 0:
+                    if pos_id not in deals_by_position:
+                        deals_by_position[pos_id] = []
+                    deals_by_position[pos_id].append(d)
+
+        synced_count = 0
+        for trade in open_trades:
+            ticket = trade.mt5_order_ticket
+            if not ticket:
+                continue
+                
+            # 1. Check if still open
+            if ticket in active_positions:
+                pos = active_positions[ticket]
+                trade.pnl = float(pos.profit)
+                synced_count += 1
+            # 2. Check if closed in history
+            elif ticket in deals_by_position:
+                pos_deals = deals_by_position[ticket]
+                # Total profit for this position is the sum of profit of all its deals
+                total_profit = sum(getattr(d, 'profit', 0.0) for d in pos_deals)
+                trade.pnl = float(total_profit)
+                trade.status = "CLOSED"
+                synced_count += 1
+            # 3. Fallback: If not in positions AND not in last 30 days history, 
+            # it might be old or closed manually without a deal trace we can find easily
+            else:
+                # We mark as closed to stop trying to sync it every time
+                # but we leave PnL at 0 or last known if we can't find it.
+                pass
+
+        db.commit()
+        return {"status": "success", "synced": synced_count}
+    except Exception as e:
+        db.rollback()
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Sync error: {str(e)}")
+
+@router.get("/portfolio")
+def get_portfolio(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """Returns the logged-in user's trade history and calculated statistics."""
+    try:
+        trades = db.query(models.Trade).filter(models.Trade.user_id == current_user.id).order_by(models.Trade.timestamp.desc()).all()
+
+        total_trades = len(trades)
+        winning_trades = sum(1 for t in trades if t.pnl is not None and t.pnl > 0)
+        win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0.0
+        total_pnl = sum((t.pnl if t.pnl is not None else 0.0) for t in trades)
+
+        # Ensure all numeric values are standard python floats for JSON serialization
+        import math
+        for t in trades:
+            if t.pnl is not None and (math.isnan(t.pnl) or math.isinf(t.pnl)):
+                t.pnl = 0.0
+            if math.isnan(t.price) or math.isinf(t.price):
+                t.price = 0.0
+
+        returned_dict = {
+            "trades": trades,
+            "total_trades": total_trades,
+            "win_rate": round(float(win_rate), 2),
+            "total_pnl": round(float(total_pnl), 2)
+        }
+        
+        response_obj = schemas.PortfolioResponse.model_validate(returned_dict)
+        # Using model_dump(mode='json') to guarantee it is JSON serializable
+        return response_obj.model_dump(mode='json')
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/backtest/{run_id}")
 def run_dynamic_backtest(run_id: str, req: BacktestRequest):

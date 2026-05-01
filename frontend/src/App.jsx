@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import { useStore } from "./store";
 import ChartWidget from "./components/ChartWidget";
@@ -11,10 +11,12 @@ import SentimentRadar from "./components/SentimentRadar";
 import NewsTicker from "./components/NewsTicker";
 import OrderTicket from "./components/OrderTicket";
 import ModelSwitcher from "./components/ModelSwitcher";
+import Login from "./components/Login";
+import Register from "./components/Register";
+import Portfolio from "./components/Portfolio";
 
 export default function App() {
     const {
-        models,
         setModels,
         selectedModel,
         setSelectedModel,
@@ -24,7 +26,11 @@ export default function App() {
         setLiveData,
         activeTab,
         setActiveTab,
+        token,
+        logout,
     } = useStore();
+
+    const [authView, setAuthView] = useState("login");
 
     const fetchPrediction = useCallback(async () => {
         if (!selectedModel) return;
@@ -77,7 +83,10 @@ export default function App() {
         try {
             const res = await fetch(`http://localhost:8000/api/v1/trade`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${useStore.getState().token}`,
+                },
                 body: JSON.stringify({
                     symbol: "EURUSD",
                     lot_size: useStore.getState().lotSize,
@@ -88,9 +97,13 @@ export default function App() {
             });
             const data = await res.json();
             if (data.status === "success") {
-                toast.success(`Filled ${direction} @ ${data.price}`, { id: toastId });
+                toast.success(`Filled ${direction} @ ${data.price}`, {
+                    id: toastId,
+                });
             } else {
-                toast.error(`Execution Failed: ${data.message}`, { id: toastId });
+                toast.error(`Execution Failed: ${data.message}`, {
+                    id: toastId,
+                });
             }
         } catch (err) {
             console.error(err);
@@ -98,18 +111,43 @@ export default function App() {
         }
     };
 
+    if (!token) {
+        return (
+            <>
+                <Toaster
+                    position="top-right"
+                    toastOptions={{
+                        style: {
+                            background: "#0d1117",
+                            color: "#c9d1d9",
+                            border: "1px solid #30363d",
+                            fontSize: "12px",
+                            fontWeight: "bold",
+                            borderRadius: "4px",
+                        },
+                    }}
+                />
+                {authView === "login" ? (
+                    <Login setView={setAuthView} />
+                ) : (
+                    <Register setView={setAuthView} />
+                )}
+            </>
+        );
+    }
+
     return (
         <div className="flex flex-col h-screen overflow-hidden bg-[#06090f]">
-            <Toaster 
+            <Toaster
                 position="top-right"
                 toastOptions={{
                     style: {
-                        background: '#0d1117',
-                        color: '#c9d1d9',
-                        border: '1px solid #30363d',
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                        borderRadius: '4px',
+                        background: "#0d1117",
+                        color: "#c9d1d9",
+                        border: "1px solid #30363d",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                        borderRadius: "4px",
                     },
                 }}
             />
@@ -131,6 +169,7 @@ export default function App() {
                 <nav className="flex space-x-1">
                     {[
                         { id: "terminal", label: "LIVE TERMINAL" },
+                        { id: "portfolio", label: "PORTFOLIO" },
                         { id: "explain", label: "MODEL X-RAY" },
                         { id: "lab", label: "BACKTEST LAB" },
                     ].map((tab) => (
@@ -154,27 +193,16 @@ export default function App() {
                         </p>
                     </div>
                     <div className="h-6 w-px bg-[#30363d]"></div>
-                    <button className="p-1.5 text-[#8b949e] hover:text-white transition-colors">
-                        <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                            />
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                        </svg>
-                    </button>
+                    <div className="flex items-center space-x-3">
+                        <span className="text-[10px] font-bold text-[#8b949e] uppercase tracking-widest">
+                            {token ? (() => { try { return JSON.parse(atob(token.split('.')[1])).sub; } catch { return 'USER'; } })() : 'USER'}
+                        </span>
+                        <button onClick={logout} className="p-1.5 text-[#8b949e] hover:text-[#f85149] transition-colors" title="Logout">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </header>
 
@@ -271,6 +299,8 @@ export default function App() {
                         </div>
                     </div>
                 )}
+
+                {activeTab === "portfolio" && <Portfolio />}
             </main>
 
             {/* FOOTER STATUS BAR */}

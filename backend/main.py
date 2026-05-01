@@ -7,8 +7,13 @@ from fastapi.middleware.cors import CORSMiddleware
 # Add the project root to the python path so we can import from src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from backend.db.database import engine, Base
 from backend.api.routes import router as api_router
 from backend.api.websockets import router as ws_router
+from backend.api.auth import router as auth_router
+
+# Create DB tables
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Falcon Trading API", version="1.0.0")
 
@@ -20,6 +25,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(ws_router)
 
