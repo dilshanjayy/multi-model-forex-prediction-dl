@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from "react";
+import toast, { Toaster } from "react-hot-toast";
 import { useStore } from "./store";
 import ChartWidget from "./components/ChartWidget";
 import ExplainabilityWidget from "./components/ExplainabilityWidget";
@@ -9,6 +10,7 @@ import SignalRadar from "./components/SignalRadar";
 import SentimentRadar from "./components/SentimentRadar";
 import NewsTicker from "./components/NewsTicker";
 import OrderTicket from "./components/OrderTicket";
+import ModelSwitcher from "./components/ModelSwitcher";
 
 export default function App() {
     const {
@@ -71,6 +73,7 @@ export default function App() {
 
     const handleTrade = async (direction) => {
         if (!liveData) return;
+        const toastId = toast.loading(`Transmitting ${direction} order...`);
         try {
             const res = await fetch(`http://localhost:8000/api/v1/trade`, {
                 method: "POST",
@@ -85,17 +88,31 @@ export default function App() {
             });
             const data = await res.json();
             if (data.status === "success") {
-                alert(`Filled ${direction} @ ${data.price}`);
+                toast.success(`Filled ${direction} @ ${data.price}`, { id: toastId });
             } else {
-                alert(`Error: ${data.message}`);
+                toast.error(`Execution Failed: ${data.message}`, { id: toastId });
             }
         } catch (err) {
             console.error(err);
+            toast.error("Network Error: Gateway Unreachable", { id: toastId });
         }
     };
 
     return (
         <div className="flex flex-col h-screen overflow-hidden bg-[#06090f]">
+            <Toaster 
+                position="top-right"
+                toastOptions={{
+                    style: {
+                        background: '#0d1117',
+                        color: '#c9d1d9',
+                        border: '1px solid #30363d',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        borderRadius: '4px',
+                    },
+                }}
+            />
             {/* GLOBAL HUD / HEADER */}
             <header className="h-12 border-b border-[#30363d] bg-[#0d1117] flex items-center px-4 justify-between shrink-0">
                 <div className="flex items-center space-x-6">
@@ -108,26 +125,7 @@ export default function App() {
 
                     <div className="h-6 w-px bg-[#30363d]"></div>
 
-                    <div className="flex items-center space-x-3">
-                        <span className="label-muted text-[9px]!">
-                            ACTIVE INSTANCE
-                        </span>
-                        <select
-                            className="bg-transparent! border-none! p-0! text-xs! font-bold! text-[#58a6ff]! w-auto! cursor-pointer"
-                            value={selectedModel || ""}
-                            onChange={(e) => setSelectedModel(e.target.value)}
-                        >
-                            {models.map((m) => (
-                                <option
-                                    key={m}
-                                    value={m}
-                                    className="bg-[#0d1117]"
-                                >
-                                    {m}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    <ModelSwitcher />
                 </div>
 
                 <nav className="flex space-x-1">

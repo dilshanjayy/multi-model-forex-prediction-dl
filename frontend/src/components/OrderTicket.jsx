@@ -37,11 +37,19 @@ export default function OrderTicket({ liveData, handleTrade }) {
         <div>
           <label className="label-muted mb-1 block">VOLUME (LOTS)</label>
           <input 
-            type="number" 
-            step="0.01" 
-            className="w-full bg-[#1c2128] border-[#30363d] text-white font-mono text-sm py-2 rounded focus:ring-1 focus:ring-[#58a6ff]"
+            type="text" 
+            inputMode="decimal"
+            className="w-full bg-[#0d1117] border border-[#30363d] text-white font-mono text-sm py-2 px-3 rounded focus:outline-none focus:border-[#58a6ff] transition-colors"
             value={lotSize}
-            onChange={(e) => setLotSize(parseFloat(e.target.value))}
+            onChange={(e) => {
+              const val = e.target.value.replace(',', '.');
+              if (/^\d*\.?\d*$/.test(val)) {
+                setLotSize(val);
+              }
+            }}
+            onBlur={() => {
+              if (!lotSize || isNaN(parseFloat(lotSize))) setLotSize(0.01);
+            }}
           />
         </div>
 

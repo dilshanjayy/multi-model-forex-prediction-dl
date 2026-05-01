@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 
 export default function ExplainabilityWidget({ runId }) {
-  // We can't easily see liveData here, but we can check the config via runId if needed
-  // For the demo gimmick, we will keep it simple.
   const [explanation, setExplanation] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -26,71 +24,109 @@ export default function ExplainabilityWidget({ runId }) {
     })
     .catch(err => {
       console.error("Error fetching explanation:", err);
-      setError("Failed to generate explainability data. Please ensure the backend is running with the latest updates.");
+      setError("Failed to generate explainability data.");
     })
     .finally(() => setLoading(false));
   }, [runId]);
 
-  if (!runId) return <div className="metric-card h-full">Select a model to view X-Ray.</div>;
+  if (!runId) return <div className="metric-card h-full flex items-center justify-center text-[#8b949e]">SELECT INSTANCE TO INITIALIZE X-RAY</div>;
 
   const maxImpact = explanation && explanation.length > 0 
     ? Math.max(...explanation.map(f => Math.abs(f.impact))) 
     : 1;
 
   return (
-    <div className="metric-card h-full flex flex-col">
-      <h3 className="metric-label mb-4">Model X-Ray (SHAP Explainability)</h3>
-      <p className="text-sm text-[#8b949e] mb-4">Top Feature Contributions for Current Signal:</p>
-      
-      {loading && (
-        <div className="flex flex-col items-center justify-center flex-1 text-[#8b949e] opacity-70">
-           <svg className="w-8 h-8 mb-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-           </svg>
-           <p className="text-xs tracking-widest uppercase">Calculating SHAP Gradients...</p>
-        </div>
-      )}
-      
-      {error && !loading && (
-        <div className="flex-1 flex items-center justify-center text-[#f85149] text-xs px-4 text-center border border-[#f85149]/20 bg-[#f85149]/5 rounded">
-           {error}
-        </div>
-      )}
-      
-      {!loading && !error && explanation && explanation.length > 0 && (
-        <div className="flex flex-col gap-3 overflow-y-auto flex-1 custom-scrollbar pr-2">
-          {explanation.map((feature, idx) => {
-             if (feature.feature.includes("failed") || feature.feature.includes("Error")) {
-                 return <div key={idx} className="text-xs text-[#f85149]">{feature.feature}</div>;
-             }
-             
-             const isPositive = feature.impact > 0;
-             const absImpact = Math.abs(feature.impact);
-             // Dynamic scaling relative to the max impact
-             const width = Math.max(2, (absImpact / maxImpact) * 100); 
-             const colorClass = isPositive ? 'bg-[#3fb950]' : 'bg-[#f85149]';
-             
-             return (
-               <div key={idx} className="w-full">
-                 <div className="flex justify-between text-xs mb-1">
-                   <span className="text-white font-mono">{feature.feature.replace(/_/g, ' ')}</span>
-                   <span className={isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'}>
-                     {feature.impact > 0 ? '+' : ''}{feature.impact.toFixed(4)}
-                   </span>
-                 </div>
-                 <div className="w-full bg-[#1c2128] rounded-full h-1.5 overflow-hidden">
-                   <div className={`${colorClass} h-full transition-all duration-1000 ease-out`} style={{ width: `${width}%` }}></div>
-                 </div>
-               </div>
-             )
-          })}
-          
-          <div className="mt-auto text-[10px] text-[#8b949e] border-t border-[#30363d] pt-3 mt-4">
-             <p className="flex items-center gap-2"><span className="w-2 h-2 bg-[#3fb950] inline-block rounded-full"></span> Positive pushes toward BUY (Class 0)</p>
-             <p className="flex items-center gap-2 mt-1"><span className="w-2 h-2 bg-[#f85149] inline-block rounded-full"></span> Negative pushes toward SELL (Class 1)</p>
+    <div className="glass-panel h-full flex flex-col overflow-hidden">
+      <div className="px-4 py-2 border-b border-[#30363d] bg-[#161b2250] flex justify-between items-center">
+          <h3 className="text-[10px] font-black text-[#8b949e] uppercase tracking-widest">NEURAL IMPACT MATRIX (SHAP)</h3>
+          <div className="flex items-center space-x-2">
+              <div className="w-1.5 h-1.5 bg-[#58a6ff] rounded-full animate-pulse"></div>
+              <span className="text-[8px] font-bold text-[#58a6ff]">LIVE SCANNING</span>
           </div>
+      </div>
+      
+      <div className="flex-1 p-6 relative overflow-hidden flex flex-col justify-start">
+        {/* Static Grid Guide */}
+        <div className="absolute inset-0 pointer-events-none z-0">
+            <div className="w-px h-full bg-[#30363d50] absolute left-1/2 -translate-x-1/2"></div>
         </div>
-      )}
+
+        {loading ? (
+            <div className="flex flex-col items-center justify-center h-full space-y-4 animate-pulse z-10">
+                <p className="text-[10px] font-black text-[#58a6ff] tracking-[0.3em] uppercase">Calculating Gradients...</p>
+                <div className="w-48 h-1 bg-[#30363d] rounded-full overflow-hidden">
+                    <div className="h-full bg-[#58a6ff] w-1/2 animate-[progress_1s_ease-in-out_infinite]"></div>
+                </div>
+            </div>
+        ) : error ? (
+            <div className="flex flex-col items-center justify-center h-full text-center space-y-2 z-10">
+                <p className="text-[10px] font-bold text-[#f85149] uppercase">{error}</p>
+                <p className="text-[8px] text-[#8b949e]">The current model architecture may not support deep explainability yet.</p>
+            </div>
+        ) : (
+            <div className="space-y-4 z-10 overflow-y-auto custom-scrollbar pr-2">
+                {explanation?.map((item, idx) => {
+                    const isPositive = item.impact > 0;
+                    const width = (Math.abs(item.impact) / maxImpact) * 45; // Max 45% width per side
+
+                    return (
+                        <div key={idx} className="group flex flex-col">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-[10px] font-bold text-[#c9d1d9] truncate max-w-[150px] uppercase tracking-tighter group-hover:text-[#58a6ff] transition-colors">{item.feature}</span>
+                                <span className={`text-[10px] font-mono font-bold ${isPositive ? 'text-[#3fb950]' : 'text-[#f85149]'}`}>
+                                    {isPositive ? '+' : ''}{(item.impact * 100).toFixed(2)}%
+                                </span>
+                            </div>
+                            
+                            <div className="relative h-1.5 bg-[#30363d30] rounded-full overflow-hidden flex justify-center">
+                                {/* The Zero Center Line */}
+                                <div className="absolute inset-y-0 left-1/2 w-px bg-[#30363d] z-10"></div>
+                                
+                                {/* The Impact Bar */}
+                                <div 
+                                    className={`absolute inset-y-0 ${isPositive ? 'left-1/2' : 'right-1/2'} transition-all duration-1000 ease-out rounded-full`}
+                                    style={{ 
+                                        width: `${width}%`,
+                                        background: isPositive 
+                                            ? 'linear-gradient(90deg, #3fb95040 0%, #3fb950 100%)' 
+                                            : 'linear-gradient(270deg, #f8514940 0%, #f85149 100%)',
+                                        boxShadow: `0 0 10px ${isPositive ? '#3fb95040' : '#f8514940'}`
+                                    }}
+                                ></div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        )}
+      </div>
+
+      <div className="px-4 py-3 border-t border-[#30363d] bg-[#0d1117] flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-1.5">
+                  <div className="w-2 h-2 rounded-sm bg-[#3fb950]"></div>
+                  <span className="text-[8px] font-bold text-[#8b949e] uppercase">Supports Decision</span>
+              </div>
+              <div className="flex items-center space-x-1.5">
+                  <div className="w-2 h-2 rounded-sm bg-[#f85149]"></div>
+                  <span className="text-[8px] font-bold text-[#8b949e] uppercase">Opposes Decision</span>
+              </div>
+          </div>
+          <span className="text-[8px] font-mono text-[#8b949e] italic opacity-60">SHAP KERNEL: ACTIVE</span>
+      </div>
+
+      <style>{`
+        @keyframes scan {
+          0% { top: -10%; opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { top: 110%; opacity: 0; }
+        }
+        @keyframes progress {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(200%); }
+        }
+      `}</style>
     </div>
   );
 }

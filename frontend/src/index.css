@@ -59,3 +59,11 @@ body {
   @apply py-3 px-4 font-bold text-sm tracking-widest uppercase transition-all active:scale-95 disabled:opacity-30 disabled:grayscale;
 }
 
+@utility glass-panel {
+  @apply bg-[#0d1117ee] backdrop-blur-md border border-[#30363d] shadow-2xl;
+}
+
+@utility dropdown-item {
+  @apply px-4 py-2 text-xs font-bold text-[#8b949e] hover:bg-[#58a6ff20] hover:text-[#58a6ff] cursor-pointer transition-colors flex items-center justify-between;
+}
+

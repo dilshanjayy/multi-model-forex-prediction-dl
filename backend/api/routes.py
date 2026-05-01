@@ -501,10 +501,11 @@ def run_dynamic_backtest(run_id: str, req: BacktestRequest):
         ]
 
         tear_sheet = {
+            "Return [%]": float(stats.get("Return [%]", 0.0)),
             "Sharpe Ratio": float(stats.get("Sharpe Ratio", 0.0)),
-            "Max Drawdown [%]": float(stats.get("Max. Drawdown [%]", 0.0)),
+            "Max. Drawdown [%]": float(stats.get("Max. Drawdown [%]", 0.0)),
             "Win Rate [%]": float(stats.get("Win Rate [%]", 0.0)),
-            "Total Trades": int(stats.get("# Trades", 0)),
+            "# Trades": int(stats.get("# Trades", 0)),
             "Profit Factor": float(stats.get("Profit Factor", 0.0))
             if not pd.isna(stats.get("Profit Factor", 0.0))
             else 0.0,
