@@ -61,3 +61,8 @@ class PortfolioResponse(BaseModel):
     total_trades: int
     win_rate: float
     total_pnl: float
+    sharpe_ratio: float
+    profit_factor: float
+    max_drawdown: float
+    equity_curve: List[dict] # {time: unix, value: cumulative_pnl}
+    model_performance: dict # {model_name: {wins: int, total: int, pnl: float}}

@@ -2,3 +2,4 @@ env/
 .vscode/
 GEMINI.md
 __pycache__/
+research/

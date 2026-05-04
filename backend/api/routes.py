@@ -551,14 +551,87 @@ def sync_portfolio(db: Session = Depends(get_db), current_user: models.User = De
 def get_portfolio(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     """Returns the logged-in user's trade history and calculated statistics."""
     try:
-        trades = db.query(models.Trade).filter(models.Trade.user_id == current_user.id).order_by(models.Trade.timestamp.desc()).all()
+        # Fetch all trades sorted chronologically for equity curve
+        trades_asc = db.query(models.Trade).filter(models.Trade.user_id == current_user.id).order_by(models.Trade.timestamp.asc()).all()
+        
+        # Original trades list (descending) for the table
+        trades = sorted(trades_asc, key=lambda x: x.timestamp, reverse=True)
 
         total_trades = len(trades)
+        if total_trades == 0:
+            return {
+                "trades": [],
+                "total_trades": 0,
+                "win_rate": 0.0,
+                "total_pnl": 0.0,
+                "sharpe_ratio": 0.0,
+                "profit_factor": 0.0,
+                "max_drawdown": 0.0,
+                "equity_curve": [],
+                "model_performance": {}
+            }
+
+        # Calculate statistics
         winning_trades = sum(1 for t in trades if t.pnl is not None and t.pnl > 0)
-        win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0.0
+        win_rate = (winning_trades / total_trades * 100)
         total_pnl = sum((t.pnl if t.pnl is not None else 0.0) for t in trades)
 
-        # Ensure all numeric values are standard python floats for JSON serialization
+        # Advanced Metrics
+        gross_profit = sum((t.pnl if t.pnl is not None and t.pnl > 0 else 0.0) for t in trades)
+        gross_loss = abs(sum((t.pnl if t.pnl is not None and t.pnl < 0 else 0.0) for t in trades))
+        profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else (gross_profit if gross_profit > 0 else 0.0)
+
+        # Equity Curve and Max Drawdown
+        equity_curve = []
+        cumulative_pnl = 0.0
+        peak_equity = 0.0
+        max_dd = 0.0
+        
+        # Start with 0 point
+        if trades_asc:
+            equity_curve.append({"time": int(trades_asc[0].timestamp.timestamp()) - 3600, "value": 0.0})
+
+        pnl_list = []
+        model_perf = {}
+
+        for t in trades_asc:
+            pnl = float(t.pnl if t.pnl is not None else 0.0)
+            cumulative_pnl += pnl
+            pnl_list.append(pnl)
+            
+            equity_curve.append({
+                "time": int(t.timestamp.timestamp()),
+                "value": round(cumulative_pnl, 2)
+            })
+
+            # Peak and Drawdown
+            if cumulative_pnl > peak_equity:
+                peak_equity = cumulative_pnl
+            
+            drawdown = peak_equity - cumulative_pnl
+            if drawdown > max_dd:
+                max_dd = drawdown
+
+            # Model Distribution
+            m = t.model_used or "Manual"
+            if m not in model_perf:
+                model_perf[m] = {"wins": 0, "total": 0, "pnl": 0.0}
+            
+            model_perf[m]["total"] += 1
+            model_perf[m]["pnl"] += pnl
+            if pnl > 0:
+                model_perf[m]["wins"] += 1
+
+        # Sharpe Ratio (Crude per-trade approximation)
+        import numpy as np
+        sharpe = 0.0
+        if len(pnl_list) > 1:
+            mean_ret = np.mean(pnl_list)
+            std_ret = np.std(pnl_list)
+            if std_ret > 0:
+                sharpe = (mean_ret / std_ret) * np.sqrt(252) # Scaled to annual approx
+
+        # Clean NaN/Inf
         import math
         for t in trades:
             if t.pnl is not None and (math.isnan(t.pnl) or math.isinf(t.pnl)):
@@ -570,11 +643,15 @@ def get_portfolio(db: Session = Depends(get_db), current_user: models.User = Dep
             "trades": trades,
             "total_trades": total_trades,
             "win_rate": round(float(win_rate), 2),
-            "total_pnl": round(float(total_pnl), 2)
+            "total_pnl": round(float(total_pnl), 2),
+            "sharpe_ratio": round(float(sharpe), 2),
+            "profit_factor": round(float(profit_factor), 2),
+            "max_drawdown": round(float(max_dd), 2),
+            "equity_curve": equity_curve,
+            "model_performance": model_perf
         }
         
         response_obj = schemas.PortfolioResponse.model_validate(returned_dict)
-        # Using model_dump(mode='json') to guarantee it is JSON serializable
         return response_obj.model_dump(mode='json')
     except Exception as e:
         import traceback
