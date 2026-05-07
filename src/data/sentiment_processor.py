@@ -86,12 +86,16 @@ def aggregate_to_h1(df, output_path):
     print(f"Total Hours in Time-Series: {len(h1_sentiment)}")
 
 if __name__ == "__main__":
+    # Local paths (will be adjusted by user if running on Kaggle)
     input_file = 'data/raw_sentiment/news_EURUSD_Cleaned.csv'
-    # We save to processed_market so the DataModule can find it easily
-    output_file = 'data/processed_market/sentiment_features.parquet'
+    output_file = 'data/raw_sentiment/news_with_sentiment_scores.csv'
     
-    # 1. Run FinBERT
-    enriched_df = run_sentiment_analysis(input_file)
+    # 1. Run FinBERT Scoring
+    # This is the heavy lifting part intended for Kaggle/Colab GPU
+    enriched_df = run_sentiment_analysis(input_file, batch_size=128)
     
-    # 2. Aggregate to H1
-    aggregate_to_h1(enriched_df, output_file)
+    # 2. Save the RAW scores (Future-Proof for any timeframe)
+    enriched_df.to_csv(output_file, index=False)
+    print(f"\n--- SUCCESS ---")
+    print(f"Full enriched dataset saved to: {output_file}")
+    print("You can now download this file and aggregate it to any timeframe (M15, H1, etc.) locally.")
