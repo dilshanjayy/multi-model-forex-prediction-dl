@@ -1,7 +1,7 @@
 import requests
 import pandas as pd
 import os
-from datetime import datetime
+
 
 def fetch_news_data(date_range: str = "03012026-03312026") -> pd.DataFrame | None:
     """
@@ -9,7 +9,7 @@ def fetch_news_data(date_range: str = "03012026-03312026") -> pd.DataFrame | Non
     Each page request consumes 1 trial credit.
     date_range format: MMDDYYYY-MMDDYYYY
     """
-    API_TOKEN = "7ojgraypnrwh9oxsbiuopipe6vvclu7qb6eura6t"
+    API_TOKEN = "hfysogcq8xpwyt4abvbyqoyllonrre3ndg8a6oeo"
     BASE_URL = "https://forexnewsapi.com/api/v1"
     CURRENCY_PAIR = "EUR-USD"
 
@@ -26,7 +26,7 @@ def fetch_news_data(date_range: str = "03012026-03312026") -> pd.DataFrame | Non
         "items": 100,
         "page": 1,
         "date": date_range,
-        "token": API_TOKEN
+        "token": API_TOKEN,
     }
 
     # 1. Fetch First Page
@@ -59,28 +59,40 @@ def fetch_news_data(date_range: str = "03012026-03312026") -> pd.DataFrame | Non
     # 3. Extract the Key-Pairs you specified
     news_list = []
     for item in all_news_raw:
-        news_list.append({
-            "time": item.get("date"),
-            "title": item.get("title"),
-            "text": item.get("text"),
-            "source": item.get("source_name"),
-            "sentiment_label": item.get("sentiment"), # Positive/Negative/Neutral
-            "url": item.get("news_url"),
-            "topics": ",".join(item.get("topics", [])), # Join list for CSV compatibility
-            "type": item.get("type"),
-            "tickers": ",".join(item.get("tickers", []))
-        })
+        news_list.append(
+            {
+                "time": item.get("date"),
+                "title": item.get("title"),
+                "text": item.get("text"),
+                "source": item.get("source_name"),
+                "sentiment_label": item.get("sentiment"),  # Positive/Negative/Neutral
+                "url": item.get("news_url"),
+                "topics": ",".join(
+                    item.get("topics", [])
+                ),  # Join list for CSV compatibility
+                "type": item.get("type"),
+                "tickers": ",".join(item.get("tickers", [])),
+            }
+        )
 
     # 4. Final Persistence
     df = pd.DataFrame(news_list)
+    
+    # --- UTC CONVERSION ---
+    # The API returns time in GMT-0400. We convert to UTC for market data alignment.
+    df["time"] = pd.to_datetime(df["time"], utc=True)
+    df["time"] = df["time"].dt.strftime("%Y-%m-%d %H:%M:%S")
+    # ----------------------
+
     df.to_csv(filename, index=False)
 
-    print(f"\n--- SUCCESS ---")
+    print("\n--- SUCCESS ---")
     print(f"Total Headlines: {len(df)}")
     print(f"Saved to: {filename}")
     print(f"Credits Used: Approx. {min(total_pages, 100)}")
 
     return df
+
 
 if __name__ == "__main__":
     # Example: Fetch March 2026 news

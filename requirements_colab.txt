@@ -1,11 +1,20 @@
+# Core ML & Deep Learning
+torch
+torchvision
+torchaudio
+transformers
+tqdm
+
+# Data Processing
 pandas
 numpy
 scikit-learn
-optuna
-PyYAML
-backtesting
 pyarrow
+fastparquet
+
+# Technical Analysis
 pandas-ta
-torch
-joblib
-bokeh
+
+# Utilities
+pyyaml
+requests
