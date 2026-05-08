@@ -1,0 +1,48 @@
+backtest:
+  atr_multiplier: 3.0
+  cash: 10000.0
+  commission: 0.0001
+  conf_threshold: 0.45
+  margin: 0.02
+  strategy: TripleBarrier
+  v_size: 10000.0
+data:
+  atr_multipliers:
+  - 3.0
+  horizons:
+  - 12
+  lookback: 48
+  processed_dir: data/processed_market
+  raw_input: data/raw_market/EURUSD_H1_20210501_20260331.csv
+  test_split_date: '2025-01-01'
+  val_split_date: '2024-01-01'
+model:
+  batch_size: 64
+  params:
+    batch_size: 64
+    cnn_filters_1: 64
+    cnn_filters_2: 128
+    dropout: 0.4
+    epochs: 100
+    input_dim: 36
+    kernel_size: 3
+    learning_rate: 0.0005
+    lookback: 48
+    lstm_units: 100
+    weight_decay: 0.001
+  target: Target_12h_3.0x_TBM
+  type: CNN-LSTM
+optimization:
+  search_space:
+    conf_threshold:
+    - 0.35
+    - 0.55
+    - 0.05
+    exit_atr_multiplier:
+    - 1.5
+    - 4.0
+    - 0.5
+project:
+  name: forex-cnnlstm
+  symbol: EURUSD
+  timeframe: H1
