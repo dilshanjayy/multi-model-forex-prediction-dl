@@ -28,7 +28,7 @@ model:
     type: "CNN-LSTM"
     # Use the Nguyen dynamic quantile labels (shifted by 1 day)
     target: "Target_1d_Nguyen"
-`
+
     batch_size: 32
     params:
         epochs: 100
