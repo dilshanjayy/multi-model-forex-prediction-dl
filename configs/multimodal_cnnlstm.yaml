@@ -24,7 +24,7 @@ model:
     modality: "MultiModal"
 
     # Triple Barrier Target
-    target: "Target_12h_1.5x_TBM"
+    target: "Target_12h_3.0x_TBM"
 
     batch_size: 64
     params:
@@ -42,6 +42,12 @@ backtest:
     cash: 10000.0
     commission: 0.0001
     v_size: 10000.0
-    atr_multiplier: 2.0
+    atr_multiplier: 3.0
     margin: 0.02
     conf_threshold: 0.45
+
+optimization:
+    search_space:
+        exit_atr_multiplier: [1.0, 5.0, 0.5]
+        conf_threshold: [0.35, 0.60, 0.05]
+
