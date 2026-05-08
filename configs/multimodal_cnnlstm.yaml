@@ -7,9 +7,10 @@ project:
 data:
     # This file starts in 2021, matching our news coverage
     raw_input: "data/raw_market/EURUSD_H1_20210501_20260331.csv"
-    processed_dir: "data/processed_market"
-    horizons: [5, 12, 24]
-    atr_multipliers: [1.5, 2.0, 3.0]
+    processed_dir: "data/processed_market_multimodal"
+    feature_pipeline: "nguyen_2024"
+    horizons: [12]
+    atr_multipliers: [3.0]
 
     # Training Split
     val_split_date: "2024-01-01"

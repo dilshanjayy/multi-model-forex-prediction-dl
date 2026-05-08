@@ -4,7 +4,7 @@ import numpy as np
 
 
 def add_triple_barrier_labels(
-    df: pd.DataFrame, horizon: int = 5, atr_multiplier: float = 3.0
+    df: pd.DataFrame, horizon: int = 5, atr_multiplier: float = 3.0, unit: str = "h"
 ) -> pd.DataFrame:
     """
     Implements the Triple Barrier Method (TBM) using ATR.
@@ -55,7 +55,7 @@ def add_triple_barrier_labels(
             labels.append(2)  # Time-out
 
     # Final Labeling
-    col_name = f"Target_{horizon}h_{atr_multiplier}x_TBM"
+    col_name = f"Target_{horizon}{unit}_{atr_multiplier}x_TBM"
     df[col_name] = labels
     return df
 
@@ -178,7 +178,7 @@ def generate_features(dataframe: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_nguyen_labels(df: pd.DataFrame, horizon: int = 24) -> pd.DataFrame:
+def add_nguyen_labels(df: pd.DataFrame, horizon: int = 24, unit: str = "h") -> pd.DataFrame:
     """
     Implements the Nguyen et al. (2024) 3-class labeling method dynamically
     using a rolling window to prevent future data leakage (lookahead bias).
@@ -211,7 +211,7 @@ def add_nguyen_labels(df: pd.DataFrame, horizon: int = 24) -> pd.DataFrame:
     labels[future_ret <= thresh_down] = 1
     labels[(future_ret > thresh_down) & (future_ret <= thresh_up)] = 2
 
-    col_name = f"Target_{horizon}h_Nguyen"
+    col_name = f"Target_{horizon}{unit}_Nguyen"
     df[col_name] = labels
     return df
 
@@ -219,23 +219,24 @@ def add_nguyen_labels(df: pd.DataFrame, horizon: int = 24) -> pd.DataFrame:
 def generate_targets(
     df: pd.DataFrame,
     horizons: list = [5, 12, 24],
-    atr_multipliers: list = [1.0, 2.0, 3.0]
+    atr_multipliers: list = [1.0, 2.0, 3.0],
+    unit: str = "h"
 ) -> pd.DataFrame:
     """
     Adds raw future log returns and Triple Barrier labels to the DataFrame.
     Generates a grid of targets for all combinations of horizons and multipliers.
     """
     # add multiple raw target horizons (e.g., 5, 12, 24 periods ahead)
-    df = add_multi_horizon_log_returns(df, horizons=horizons)
+    df = add_multi_horizon_log_returns(df, horizons=horizons, unit=unit)
 
     # add Triple Barrier Labeling and Nguyen Labeling for all combinations
     for h in horizons:
         # Add Nguyen et al. Quantile Labels
-        df = add_nguyen_labels(df, horizon=h)
+        df = add_nguyen_labels(df, horizon=h, unit=unit)
 
         # Add TBM Labels
         for m in atr_multipliers:
-            df = add_triple_barrier_labels(df, horizon=h, atr_multiplier=m)
+            df = add_triple_barrier_labels(df, horizon=h, atr_multiplier=m, unit=unit)
 
     return df.dropna()
 
@@ -260,7 +261,7 @@ def split_components(df: pd.DataFrame) -> dict:
 
 
 def add_multi_horizon_log_returns(
-    df: pd.DataFrame, horizons: list = [5, 12, 24]
+    df: pd.DataFrame, horizons: list = [5, 12, 24], unit: str = "h"
 ) -> pd.DataFrame:
     """
     Adds raw future log returns for multiple time horizons.
@@ -268,7 +269,7 @@ def add_multi_horizon_log_returns(
     during training to avoid data leakage and allow for flexible tuning.
     """
     for h in horizons:
-        col_name = f"LogRet_{h}h"
+        col_name = f"LogRet_{h}{unit}"
         df[col_name] = np.log(df["Close"].shift(-h) / df["Close"])
 
     # drop the last rows where we don't have future values for the longest horizon
@@ -306,9 +307,99 @@ def purge_redundant_features(df: pd.DataFrame) -> pd.DataFrame:
 
 # --- NAMED FEATURE PIPELINES ---
 
+def generate_nguyen_features(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """
+    STRICT REPLICATION: Produces exactly the 19 features from Nguyen et al. (2024).
+    OHLCV (5) + 14 Indicators.
+    """
+    df = dataframe.copy()
+    
+    # --- DYNAMIC ALIGNMENT ---
+    df["time"] = pd.to_datetime(df["time"], utc=True)
+    df.set_index("time", inplace=True, drop=False)
+    df.sort_index(inplace=True)
+    # --------------------------
+
+    # 1. Standardize column names
+    df.rename(
+        columns={
+            "open": "Open",
+            "high": "High",
+            "low": "Low",
+            "close": "Close",
+            "tick_volume": "Volume",
+        },
+        inplace=True,
+    )
+    
+    # 2. Indicators (Strict 14 from paper)
+    # Using pandas-ta for robust implementation
+    df.ta.trix(append=True)
+    df.ta.vwap(append=True) # Substitute for VWAMA
+    df.ta.mom(append=True)
+    df.ta.roc(append=True)
+    df.ta.rsi(append=True)
+    df.ta.atr(append=True)
+    df.ta.mfi(append=True)
+    df.ta.efi(append=True)
+    df.ta.bbands(append=True)
+    df.ta.cci(append=True)
+    df.ta.tsi(append=True)
+    df.ta.stochrsi(append=True)
+    df.ta.adx(append=True)
+    df.ta.stoch(append=True)
+    
+    # 3. SELECT EXACT 19 COLUMNS
+    # BBWidth calculation
+    bbm_cols = [c for c in df.columns if "BBM" in c]
+    bbu_cols = [c for c in df.columns if "BBU" in c]
+    bbl_cols = [c for c in df.columns if "BBL" in c]
+    
+    if bbm_cols and bbu_cols and bbl_cols:
+        df["BBWidth"] = (df[bbu_cols[0]] - df[bbl_cols[0]]) / df[bbm_cols[0]]
+    else:
+        df["BBWidth"] = 0.0 # Fallback
+
+    # Map names to exact paper set
+    # Note: pandas-ta names columns based on parameters (e.g. RSI_14)
+    mapping = {
+        "Open": "Open", "High": "High", "Low": "Low", "Close": "Close", "Volume": "Volume",
+        "TRIX": "TRIX_30_9", 
+        "VWAP": "VWAP_D", 
+        "MOM": "MOM_10", 
+        "ROC": "ROC_10", 
+        "RSI": "RSI_14",
+        "ATR": "ATR_14", 
+        "MFI": "MFI_14", 
+        "EFI": "EFI_13", 
+        "BBWidth": "BBWidth", 
+        "CCI": "CCI_14_0.015",
+        "TSI": "TSI_13_25_13", 
+        "STOCHRSIk": "STOCHRSIk_14_14_3_3", 
+        "ADX": "ADX_14", 
+        "STOCHk": "STOCHk_14_3_3"
+    }
+    
+    final_cols = []
+    for key, preferred in mapping.items():
+        if preferred in df.columns:
+            final_cols.append(preferred)
+        else:
+            # Fuzzy match
+            matches = [c for c in df.columns if key in c]
+            if matches:
+                final_cols.append(matches[0])
+            else:
+                print(f"Warning: Could not find feature for {key}")
+
+    df = df[final_cols + ["time"]]
+    df.dropna(inplace=True)
+    return df
+
+
 FEATURE_PIPELINES = {
     "default": generate_features,
-    "nguyen_2024": generate_features,
+    "nguyen_2024": generate_nguyen_features,
 }
 
 

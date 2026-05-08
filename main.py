@@ -13,6 +13,7 @@ from src.data.data_processor import (
     generate_features,
     generate_targets,
     split_components,
+    run_pipeline,
 )
 from src.data.data_module import DataModule
 from src.models.baseline_trainer import run_baseline_training
@@ -212,11 +213,18 @@ def main():
         df = pd.read_csv(raw_input, parse_dates=["time"])
 
         # Modular Pipeline
-        enriched_df = generate_features(df)
+        pipeline_name = config["data"].get("feature_pipeline", "default")
+        enriched_df = run_pipeline(pipeline_name, df)
+        
+        # Determine timeframe unit (H1 -> h, D1 -> d)
+        timeframe = config["project"].get("timeframe", "H1")
+        unit = "d" if "D" in timeframe.upper() else "h"
+
         final_df = generate_targets(
             enriched_df,
             horizons=config["data"].get("horizons", [5, 12, 24]),
             atr_multipliers=config["data"].get("atr_multipliers", [1.0, 2.0, 3.0]),
+            unit=unit
         )
         
         # Determine modality from config

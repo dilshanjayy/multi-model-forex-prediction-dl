@@ -39,14 +39,20 @@ class DataModule:
 
         # 1. Resample to the target frequency (detected from target_index)
         # We take the mean of sentiment in each bucket
-        # Fallback to '1h' if frequency can't be inferred (standard for H1 data)
         freq = target_index.inferred_freq
-        if freq is None:
-            freq = "1h"
         
-        # Standardize 'H' to '1h' for modern Pandas compatibility
-        if freq == "H":
-            freq = "1h"
+        # Smart Frequency Detection for Forex (Handles weekend gaps)
+        if freq is None:
+            # Calculate median diff between bars
+            diffs = pd.Series(target_index).diff().dropna().median()
+            if diffs >= pd.Timedelta(hours=20):
+                freq = "1D"
+            else:
+                freq = "1h"
+        
+        # Standardize for modern Pandas
+        if freq == "H": freq = "1h"
+        if freq == "D": freq = "1D"
 
         resampled = df[['sent_pos', 'sent_neg', 'sent_neu', 'sentiment_score']].resample(freq).mean()
 

@@ -1,0 +1,55 @@
+# Nguyen et al. (2024) Replication Configuration
+# Architecture: 2 CNN layers (32, 64) + 1 LSTM layer (50)
+# Data: Daily (D1) candles
+# Labeling: Quantile-based (35% Up, 30% Down, 35% Neutral)
+
+project:
+    name: "nguyen-2024-replication"
+    symbol: "EURUSD"
+    timeframe: "D1"
+
+data:
+    raw_input: "data/raw_market/EURUSD_D1_20140101_20240101.csv"
+    processed_dir: "data/processed_market_d1"
+    feature_pipeline: "nguyen_2024"
+
+    # Paper uses 5-day sliding window (4 time steps + current)
+    lookback: 5
+
+    # Labeling parameters
+    horizons: [1] # 1 day ahead
+    atr_multipliers: [2.0]
+
+    # Training Split
+    val_split_date: "2021-01-01"
+    test_split_date: "2023-01-01"
+
+model:
+    type: "CNN-LSTM"
+    # Use the Nguyen dynamic quantile labels (shifted by 1 day)
+    target: "Target_1d_Nguyen"
+`
+    batch_size: 32
+    params:
+        epochs: 100
+        learning_rate: 0.0005
+        weight_decay: 0.001
+        cnn_filters_1: 32
+        cnn_filters_2: 64
+        lstm_units: 50
+        kernel_size: 3
+        dropout: 0.2
+
+backtest:
+    strategy: "TripleBarrier"
+    cash: 10000.0
+    commission: 0.0
+    v_size: 10000.0
+    atr_multiplier: 2.0
+    margin: 0.02
+    conf_threshold: 0.40
+
+optimization:
+    search_space:
+        exit_atr_multiplier: [1.0, 4.0, 0.5]
+        conf_threshold: [0.35, 0.55, 0.05]
