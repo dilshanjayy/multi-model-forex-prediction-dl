@@ -13,7 +13,8 @@ data:
     train_split_pct: 0.60
     val_split_pct: 0.20
 
-    lookback: 120
+    # Sequence length for CNN/LSTM - reduced for better focus on recent patterns
+    lookback: 48
 
 model:
     type: "CNN-LSTM"
@@ -21,13 +22,13 @@ model:
     batch_size: 64
     params:
         epochs: 100
-        learning_rate: 0.0001
+        learning_rate: 0.0005
         weight_decay: 0.001
-        cnn_filters_1: 32
-        cnn_filters_2: 64
-        lstm_units: 50
+        cnn_filters_1: 64
+        cnn_filters_2: 128
+        lstm_units: 100
         kernel_size: 3
-        dropout: 0.3
+        dropout: 0.4
 
 backtest:
     strategy: "TripleBarrier"
@@ -36,9 +37,9 @@ backtest:
     v_size: 10000.0
     atr_multiplier: 3.0
     margin: 0.02
-    conf_threshold: 0.50
+    conf_threshold: 0.40
 
 optimization:
     search_space:
-        exit_atr_multiplier: [1.0, 4.0, 0.5]
-        conf_threshold: [0.35, 0.50, 0.05]
+        exit_atr_multiplier: [1.5, 4.0, 0.5]
+        conf_threshold: [0.35, 0.55, 0.05]
