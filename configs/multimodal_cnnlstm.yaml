@@ -1,0 +1,47 @@
+# MultiModal Hybrid CNN-LSTM Configuration
+project:
+    name: "multi-modal-cnnlstm"
+    symbol: "EURUSD"
+    timeframe: "H1"
+
+data:
+    # This file starts in 2021, matching our news coverage
+    raw_input: "data/raw_market/EURUSD_H1_20210501_20260331.csv"
+    processed_dir: "data/processed_market"
+    horizons: [5, 12, 24]
+    atr_multipliers: [1.5, 2.0, 3.0]
+
+    # Training Split
+    val_split_date: "2024-01-01"
+    test_split_date: "2025-01-01"
+
+    # Sequence length for CNN/LSTM
+    lookback: 120
+
+model:
+    type: "CNN-LSTM"
+    # NEW: Triggers the sentiment join in DataModule
+    modality: "MultiModal"
+
+    # Triple Barrier Target
+    target: "Target_12h_1.5x_TBM"
+
+    batch_size: 64
+    params:
+        epochs: 100
+        learning_rate: 0.00005
+        weight_decay: 0.001
+        cnn_filters_1: 32
+        cnn_filters_2: 64
+        lstm_units: 50
+        kernel_size: 3
+        dropout: 0.3
+
+backtest:
+    strategy: "TripleBarrier"
+    cash: 10000.0
+    commission: 0.0001
+    v_size: 10000.0
+    atr_multiplier: 2.0
+    margin: 0.02
+    conf_threshold: 0.45

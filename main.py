@@ -218,11 +218,33 @@ def main():
             horizons=config["data"].get("horizons", [5, 12, 24]),
             atr_multipliers=config["data"].get("atr_multipliers", [1.0, 2.0, 3.0]),
         )
-        feature_dict = split_components(final_df)
+        
+        # Determine modality from config
+        modality = config.get("model", {}).get("modality", "Technical")
+        # Include metadata to avoid KeyError in split_components
+        components = ["technical_features", "targets", "metadata"]
+        if modality == "MultiModal":
+            components.append("sentiment")
+            print("MultiModal integration enabled: Including news sentiment features.")
 
-        # Save modular components as Parquet
+        # Use DataModule to prepare the final aligned dataset
         processed_dir = config["data"]["processed_dir"]
+        dm = DataModule(processed_dir=processed_dir)
+        
+        # Before preparing, we must save the base components so DataModule can find them
+        feature_dict = split_components(final_df)
         DataModule.save_features(feature_dict, processed_dir)
+
+        # Now reload with alignment (and sentiment if requested)
+        aligned_df = dm.prepare_dataset(components=components)
+        
+        # Split aligned_df back into components for training
+        # This ensures sentiment is properly merged into the training set
+        # split_components automatically puts non-target/non-metadata cols into 'technical_features'
+        final_feature_dict = split_components(aligned_df.reset_index())
+
+        # Save the FINAL multi-modal components
+        DataModule.save_features(final_feature_dict, processed_dir)
 
         # train
         print("\n--- Step 2: Model Training ---")
