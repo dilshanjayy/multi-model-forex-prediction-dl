@@ -3,6 +3,7 @@ import MetaTrader5 as mt5
 import pandas as pd
 from src.data.data_processor import run_pipeline
 
+_MT5_INITIALIZED = False
 
 def fetch_live_data(
     symbol: str, timeframe_str: str, count: int = 300, pipeline_name: str = "default"
@@ -11,9 +12,12 @@ def fetch_live_data(
     Fetches the latest N bars from MT5 and returns an engineered DataFrame.
     Returns None if MT5 is not available or if the market is closed (no rates fetched).
     """
-    if mt5 is None or not mt5.initialize():
-        print("MT5 Initialization failed or unsupported OS.")
-        return None
+    global _MT5_INITIALIZED
+    if not _MT5_INITIALIZED:
+        if mt5 is None or not mt5.initialize():
+            print("MT5 Initialization failed or unsupported OS.")
+            return None
+        _MT5_INITIALIZED = True
 
     # Map timeframe string to MT5 enum
     tf_map = {

@@ -69,12 +69,24 @@ export default function App() {
             .then((data) => setModelDetails(data))
             .catch((err) => console.error("Error fetching details:", err));
 
-        // Initial fetch for live data
-        fetchPrediction();
+        let isActive = true;
+        let timeoutId;
 
-        // Set up polling (to simulate WebSocket until Phase 2)
-        const interval = setInterval(fetchPrediction, 2000);
-        return () => clearInterval(interval);
+        const poll = async () => {
+            if (!isActive) return;
+            await fetchPrediction();
+            if (isActive) {
+                timeoutId = setTimeout(poll, 2000);
+            }
+        };
+
+        // Start polling
+        poll();
+
+        return () => {
+            isActive = false;
+            clearTimeout(timeoutId);
+        };
     }, [selectedModel, setModelDetails, fetchPrediction]);
 
     const handleTrade = async (direction) => {

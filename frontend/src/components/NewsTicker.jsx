@@ -4,16 +4,28 @@ export default function NewsTicker() {
   const [news, setNews] = useState([]);
 
   useEffect(() => {
-    const fetchNews = () => {
-      fetch('http://localhost:8000/api/v1/news?limit=15')
-        .then(res => res.json())
-        .then(data => setNews(data.news || []))
-        .catch(err => console.error("Error fetching news:", err));
+    let isActive = true;
+    let timeoutId;
+
+    const fetchNews = async () => {
+      if (!isActive) return;
+      try {
+        const res = await fetch('http://localhost:8000/api/v1/news?limit=15');
+        const data = await res.json();
+        if (isActive) setNews(data.news || []);
+      } catch (err) {
+        console.error("Error fetching news:", err);
+      }
+      if (isActive) {
+        timeoutId = setTimeout(fetchNews, 30000); // Update every 30s
+      }
     };
 
     fetchNews();
-    const interval = setInterval(fetchNews, 30000); // Update every 30s
-    return () => clearInterval(interval);
+    return () => {
+      isActive = false;
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   return (
@@ -32,9 +44,10 @@ export default function NewsTicker() {
                 }`}>
                   {item.sentiment_label?.toUpperCase()}
                 </span>
-                <span className="text-[8px] text-[#8b949e] font-mono">
-                  {new Date(item.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
+                <div className="text-[8px] text-[#8b949e] font-mono text-right flex flex-col">
+                  <span>{new Date(item.time).toLocaleDateString([], { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                  <span>{new Date(item.time).toLocaleTimeString([], { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' })} UTC</span>
+                </div>
               </div>
               <p className="text-[10px] font-bold text-white leading-tight group-hover:text-[#58a6ff] transition-colors line-clamp-2">
                 {item.title}

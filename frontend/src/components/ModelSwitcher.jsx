@@ -51,7 +51,7 @@ export default function ModelSwitcher() {
                     </div>
                     <div className="max-h-60 overflow-y-auto custom-scrollbar">
                         {models.map((m) => {
-                            const isMultiModal = m.toLowerCase().includes('hybrid') || m.toLowerCase().includes('multi');
+                            const isMultiModal = m.toLowerCase().includes('hybrid') || m.toLowerCase().includes('multi') || m.toLowerCase().includes('sentiment');
                             return (
                                 <div 
                                     key={m} 

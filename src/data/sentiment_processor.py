@@ -8,6 +8,41 @@ from tqdm import tqdm
 # Set device: Use GPU if available for 10x speedup
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# Global model cache to avoid reloading in live mode
+SENTIMENT_MODEL = None
+SENTIMENT_TOKENIZER = None
+
+def get_sentiment_engine():
+    """Singleton-style getter for FinBERT model."""
+    global SENTIMENT_MODEL, SENTIMENT_TOKENIZER
+    if SENTIMENT_MODEL is None:
+        model_name = "ProsusAI/finbert"
+        SENTIMENT_TOKENIZER = AutoTokenizer.from_pretrained(model_name)
+        SENTIMENT_MODEL = AutoModelForSequenceClassification.from_pretrained(model_name).to(device)
+        SENTIMENT_MODEL.eval()
+    return SENTIMENT_MODEL, SENTIMENT_TOKENIZER
+
+def score_headlines(titles, texts):
+    """
+    Scores a list of headlines and returns raw probabilities.
+    """
+    model, tokenizer = get_sentiment_engine()
+    
+    combined = [f"{t}. {tx}" for t, tx in zip(titles, texts)]
+    
+    inputs = tokenizer(
+        combined, 
+        padding=True, 
+        truncation=True, 
+        max_length=512, 
+        return_tensors="pt"
+    ).to(device)
+
+    with torch.no_grad():
+        outputs = model(**inputs)
+        probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
+        return probs.cpu().numpy()
+
 def run_sentiment_analysis(input_path, batch_size=64):
     """
     Runs FinBERT on the cleaned news dataset and returns probabilities.

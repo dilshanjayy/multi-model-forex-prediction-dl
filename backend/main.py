@@ -17,6 +17,21 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Falcon Trading API", version="1.0.0")
 
+@app.on_event("startup")
+async def startup_event():
+    """Pre-load ML models on startup for low-latency live inference."""
+    try:
+        from src.data.sentiment_processor import get_sentiment_engine
+        print("--- Pre-loading Sentiment Engine (FinBERT) ---")
+        get_sentiment_engine()
+        print("--- Sentiment Engine Ready ---")
+        
+        from backend.api.routes import preload_all_models
+        preload_all_models()
+        
+    except Exception as e:
+        print(f"Warning: Could not pre-load engines: {e}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], # For development

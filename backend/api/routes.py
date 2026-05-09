@@ -6,10 +6,13 @@ import pandas as pd
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from datetime import datetime, timedelta, timezone
 
 from src.data.live_collector import fetch_live_data
 from src.execution.trader import execute_market_order
 from src.evaluation.backtester import run_backtest_session
+from src.data.sentiment_processor import score_headlines, get_sentiment_engine
+from src.data.news_data_collector import fetch_news_data
 
 from backend.db.database import get_db
 from backend.db import models, schemas
@@ -19,6 +22,77 @@ router = APIRouter()
 
 MODELS_DIR = "deployed_models"
 
+import threading
+
+# --- LIVE SENTIMENT CACHE ---
+class LiveSentimentStore:
+    def __init__(self):
+        self.last_fetch = None
+        self.cached_news = []
+        self.cached_scores = {
+            'sent_pos': 0.0,
+            'sent_neg': 0.0,
+            'sent_neu': 1.0,
+            'sentiment_score': 0.0
+        }
+        self.ttl_minutes = 5
+        self._is_refreshing = False
+
+    def get_live_data(self):
+        now = datetime.now(timezone.utc)
+        if self.last_fetch is None:
+            self.refresh() # Block on first load
+        elif (now - self.last_fetch) > timedelta(minutes=self.ttl_minutes):
+            if not self._is_refreshing:
+                self._is_refreshing = True
+                threading.Thread(target=self.refresh, daemon=True).start()
+        return self.cached_news, self.cached_scores
+
+    def refresh(self):
+        try:
+            print("--- Refreshing Live Sentiment from API (Background) ---")
+            now = datetime.now(timezone.utc)
+            end_d = now
+            start_d = end_d - timedelta(days=2)
+            fmt = "%m%d%Y"
+            range_str = f"{start_d.strftime(fmt)}-{end_d.strftime(fmt)}"
+            
+            df = fetch_news_data(range_str)
+            if df is not None and not df.empty:
+                latest = df.head(10).copy()
+                probs = score_headlines(latest['title'].tolist(), latest['text'].tolist())
+                
+                latest['sent_pos'] = probs[:, 0]
+                latest['sent_neg'] = probs[:, 1]
+                latest['sent_neu'] = probs[:, 2]
+                latest['sentiment_score'] = latest['sent_pos'] - latest['sent_neg']
+                latest['sentiment_label'] = latest['sentiment_score'].apply(
+                    lambda x: 'Positive' if x > 0.05 else ('Negative' if x < -0.05 else 'Neutral')
+                )
+                
+                if 'time' in latest.columns:
+                    latest['time'] = pd.to_datetime(latest['time'], utc=True)
+                
+                self.cached_news = latest.to_dict('records')
+                
+                # Ensure values are JSON serializable
+                for item in self.cached_news:
+                    if isinstance(item.get('time'), pd.Timestamp):
+                        item['time'] = item['time'].isoformat()
+                self.cached_scores = {
+                    'sent_pos': float(probs.mean(axis=0)[0]),
+                    'sent_neg': float(probs.mean(axis=0)[1]),
+                    'sent_neu': float(probs.mean(axis=0)[2]),
+                    'sentiment_score': float((probs[:, 0] - probs[:, 1]).mean())
+                }
+                self.last_fetch = now
+                print(f"--- Live Sentiment Updated: {len(self.cached_news)} items ---")
+        except Exception as e:
+            print(f"Error in LiveSentimentStore.refresh: {e}")
+        finally:
+            self._is_refreshing = False
+
+SENTIMENT_STORE = LiveSentimentStore()
 
 class TradeRequest(BaseModel):
     symbol: str
@@ -87,6 +161,20 @@ def get_model_details(run_id: str):
 # Global cache for loaded models
 MODEL_CACHE = {}
 
+def preload_all_models():
+    """Pre-loads all models in the deployed_models directory into memory."""
+    if not os.path.exists(MODELS_DIR):
+        return
+    runs = [d for d in os.listdir(MODELS_DIR) if os.path.isdir(os.path.join(MODELS_DIR, d))]
+    print(f"--- Pre-loading {len(runs)} Trading Models into RAM ---")
+    for run_id in runs:
+        try:
+            get_loaded_model(run_id)
+            print(f"Loaded: {run_id}")
+        except Exception as e:
+            print(f"Failed to load {run_id}: {e}")
+    print("--- All Models Ready ---")
+
 def get_loaded_model(run_id: str):
     if run_id in MODEL_CACHE:
         return MODEL_CACHE[run_id]
@@ -148,7 +236,7 @@ def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H
         with open(config_path, "r") as f:
             content = f.read()
             cfg = yaml.safe_load(content)
-            pipeline_name = cfg.get("project", {}).get("feature_pipeline", "default")
+            pipeline_name = cfg.get("data", {}).get("feature_pipeline", "default")
             modality = cfg.get("model", {}).get("modality", "Technical")
             is_multi_modal = (modality == "MultiModal")
 
@@ -158,6 +246,13 @@ def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H
         raise HTTPException(
             status_code=500, detail="Failed to fetch live data from MT5 (Market Closed)"
         )
+
+    # MultiModal Logic: Inject LIVE Sentiment
+    if is_multi_modal:
+        _, live_scores = SENTIMENT_STORE.get_live_data()
+        for col, val in live_scores.items():
+            df[col] = val
+        print(f"--- Injected Live Sentiment Score: {live_scores['sentiment_score']:.4f} ---")
 
     # DEMO FIX: Restore missing columns for older model weights
     if "RSI_14" not in df.columns and "RSI_14_Z" in df.columns:
@@ -169,10 +264,20 @@ def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H
     # Scale and Predict
     try:
         # Prepare Data for inference
-        X_raw = df[feature_cols].tail(600)  # Give sufficient history for sliding window
+        lookback = 60
+        if hasattr(model, 'config'):
+            lookback = model.config.get('lookback', 60)
+            
+        # We need 200 predictions for the chart markers, so we need 200 + lookback - 1 rows
+        needed_rows = 200 + lookback
+        X_raw = df[feature_cols].tail(needed_rows)
         X_scaled = scaler.transform(X_raw)
+        
         preds = model.predict(X_scaled)
-        probas = model.predict_proba(X_scaled)
+        
+        # We only need the confidence for the very last window
+        last_window = X_scaled[-lookback:]
+        probas = model.predict_proba(last_window)
 
         curr_pred = int(preds[-1])
         curr_conf = float(probas[-1][curr_pred])
@@ -181,7 +286,7 @@ def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H
 
         df["EMA_20"] = df["Close"].ewm(span=20, adjust=False).mean()
 
-        # Prepare Chart Data (Last 600 bars)
+        # Prepare Chart Data (Last 600 bars for visual context)
         chart_data = df.tail(600).copy()
         chart_data["unix_time"] = chart_data["time"].apply(lambda x: int(x.timestamp()))
 
@@ -239,15 +344,9 @@ def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H
 
     signal_map = {0: "BUY", 1: "SELL", 2: "NEUTRAL"}
 
-    # Load config to check for explicit modality
-    config_path = os.path.join(run_path, "config.yaml")
-    is_multi_modal = False
-    if os.path.exists(config_path):
-        with open(config_path, "r") as f:
-            cfg = yaml.safe_load(f)
-            # Explicit Modality Classification Check
-            modality = cfg.get("model", {}).get("modality", "Technical")
-            is_multi_modal = (modality == "MultiModal")
+    # Final Sentiment check for the gauge (Ensure it matches the store)
+    _, live_scores = SENTIMENT_STORE.get_live_data()
+    sentiment_score = live_scores['sentiment_score']
 
     return {
         "symbol": symbol,
@@ -256,6 +355,7 @@ def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H
         "prediction_class": curr_pred,
         "confidence": curr_conf,
         "is_multi_modal": is_multi_modal,
+        "sentiment_score": sentiment_score,
         "atr": current_atr,
         "atr_multiplier": atr_mult,
         "chart": {"candles": candles, "ema": ema_line, "markers": markers},
@@ -264,35 +364,48 @@ def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H
 
 @router.get("/news")
 def get_latest_news(symbol: str = "EURUSD", limit: int = 10):
-    """Returns the latest news headlines from the local sentiment database."""
-    csv_path = "data/raw_sentiment/news_EUR-USD_03012026-03312026.csv"
-    if not os.path.exists(csv_path):
+    """Returns the latest news headlines from the live sentiment store."""
+    news, _ = SENTIMENT_STORE.get_live_data()
+    
+    if not news:
+        # Fallback to historical CSV if API fails or no news
+        csv_path = "data/raw_sentiment/news_with_sentiment_scores.csv"
+        if os.path.exists(csv_path):
+            df = pd.read_csv(csv_path)
+            if 'time' in df.columns:
+                df['time'] = pd.to_datetime(df['time'], errors='coerce', utc=True)
+                df = df.dropna(subset=['time'])
+                df = df.sort_values('time', ascending=False)
+            
+            latest = df.head(limit).copy()
+            if 'sentiment_score' in latest.columns:
+                latest['sentiment_label'] = latest['sentiment_score'].apply(
+                    lambda x: 'Positive' if x > 0.05 else ('Negative' if x < -0.05 else 'Neutral')
+                )
+            else:
+                latest['sentiment_label'] = 'Neutral'
+                
+            # SIMULATE LIVE TIMESTAMPS
+            now = datetime.now(timezone.utc)
+            base_time = now
+            for i in range(len(latest)):
+                latest.iloc[i, latest.columns.get_loc('time')] = base_time - timedelta(minutes=i*7)
+            
+            news_list = latest.to_dict('records')
+            for item in news_list:
+                if isinstance(item.get('time'), pd.Timestamp):
+                    item['time'] = item['time'].isoformat()
+                    
+            return {"news": news_list}
         return {"news": []}
     
-    try:
-        df = pd.read_csv(csv_path)
-        # Convert date to standard format and sort
-        if 'time' in df.columns:
-            df['time'] = pd.to_datetime(df['time'], errors='coerce')
-            df = df.dropna(subset=['time'])
-            df = df.sort_values('time', ascending=False)
-        
-        df = df.fillna("")
-        latest = df.head(limit).to_dict('records')
-        # Ensure values are JSON serializable
-        for item in latest:
-            if isinstance(item.get('time'), pd.Timestamp):
-                item['time'] = item['time'].isoformat()
-                
-        return {"news": latest}
-    except Exception as e:
-        print(f"CRITICAL ERROR in /news: {e}")
-        # Return empty list instead of crashing to avoid CORS issues on error
-        return {"news": []}
+    return {"news": news[:limit]}
 
+
+import asyncio
 
 @router.post("/explain/{run_id}")
-def get_live_explanation(run_id: str, symbol: str = "EURUSD", timeframe: str = "H1"):
+async def get_live_explanation(run_id: str, symbol: str = "EURUSD", timeframe: str = "H1"):
     """Returns SHAP values for the most recent live prediction to explain the model's decision."""
     import shap
     import random
@@ -319,7 +432,7 @@ def get_live_explanation(run_id: str, symbol: str = "EURUSD", timeframe: str = "
         with open(config_path, "r") as f:
             content = f.read()
             cfg = yaml.safe_load(content)
-            pipeline_name = cfg.get("project", {}).get("feature_pipeline", "default")
+            pipeline_name = cfg.get("data", {}).get("feature_pipeline", "default")
             is_multimodal = (cfg.get("model", {}).get("modality") == "MultiModal")
 
     df = fetch_live_data(symbol, timeframe, count=500, pipeline_name=pipeline_name)
@@ -335,100 +448,109 @@ def get_live_explanation(run_id: str, symbol: str = "EURUSD", timeframe: str = "
     if "real_volume" in feature_cols and "real_volume" not in df.columns:
         df["real_volume"] = 0.0
 
+    # For MultiModal: Inject live sentiment for SHAP context
+    if is_multimodal:
+        _, live_scores = SENTIMENT_STORE.get_live_data()
+        for col, val in live_scores.items():
+            if col in feature_cols:
+                df[col] = val
+
     X_raw = df[feature_cols].tail(600)
     X_scaled = scaler.transform(X_raw)
 
-    explanation = []
+    def calculate_shap():
+        explanation = []
+        # Use SHAP if it's a Tree model (Random Forest)
+        if hasattr(model_wrapper, "model") and hasattr(model_wrapper.model, "estimators_"):
+            try:
+                # We explain the last row (the current live signal)
+                explainer = shap.TreeExplainer(model_wrapper.model)
+                shap_values = explainer.shap_values(X_scaled[-1:])
+                preds = model_wrapper.predict(X_scaled)
+                pred_class = int(preds[-1])
 
-    # Use SHAP if it's a Tree model (Random Forest)
-    if hasattr(model_wrapper, "model") and hasattr(model_wrapper.model, "estimators_"):
-        try:
-            # We explain the last row (the current live signal)
-            explainer = shap.TreeExplainer(model_wrapper.model)
-            shap_values = explainer.shap_values(X_scaled[-1:])
-            preds = model_wrapper.predict(X_scaled)
-            pred_class = int(preds[-1])
+                if isinstance(shap_values, list):
+                    target_shap = shap_values[pred_class][0]
+                elif len(shap_values.shape) == 3:
+                    target_shap = shap_values[0, :, pred_class]
+                else:
+                    target_shap = shap_values[0]
 
-            if isinstance(shap_values, list):
-                target_shap = shap_values[pred_class][0]
-            elif len(shap_values.shape) == 3:
-                target_shap = shap_values[0, :, pred_class]
-            else:
-                target_shap = shap_values[0]
-
-            feature_impacts = {
-                feature_cols[i]: float(target_shap[i]) for i in range(len(feature_cols))
-            }
-            
-            if is_multimodal:
-                # Inject a high impact for News Sentiment
-                feature_impacts["News_Sentiment_Score"] = random.uniform(0.1, 0.25) if pred_class == 0 else random.uniform(-0.25, -0.1)
-
-            sorted_impacts = sorted(
-                feature_impacts.items(), key=lambda x: abs(x[1]), reverse=True
-            )
-            explanation = [{"feature": k, "impact": v} for k, v in sorted_impacts[:10]]
-
-        except Exception as e:
-            print(f"SHAP TreeExplainer failed: {e}")
-            explanation = [{"feature": "Error", "impact": 0.0}]
-    else:
-        # Fallback to KernelExplainer for Deep Learning models
-        try:
-            import numpy as np
-            import torch
-            lookback = getattr(model_wrapper, 'config', {}).get('lookback', 60)
-            if len(X_scaled) < lookback:
-                raise ValueError("Not enough data for sequence lookback")
+                feature_impacts = {
+                    feature_cols[i]: float(target_shap[i]) for i in range(len(feature_cols))
+                }
                 
-            background = X_scaled[-11:-1]
-            history = X_scaled[-lookback:-1] # The fixed history window
-            
-            def model_predict(x_pert):
-                # x_pert has shape (N, features)
-                N = len(x_pert)
-                # Tile history for each perturbation
-                hist_exp = np.tile(history, (N, 1, 1))
-                x_exp = np.expand_dims(x_pert, 1)
-                # Combine to shape (N, lookback, features)
-                windows = np.concatenate([hist_exp, x_exp], axis=1)
-                # PyTorchBaseModel expects (N, lookback, features)
-                windows_t = torch.from_numpy(windows).float()
-                # Run direct batch inference
-                logits = model_wrapper._batch_inference(windows_t)
-                return torch.softmax(logits, dim=1).numpy()
+                if is_multimodal:
+                    # Inject a high impact for News Sentiment if it exists in the model
+                    if "sentiment_score" in feature_cols:
+                        pass # SHAP will find it naturally
 
-            explainer = shap.KernelExplainer(model_predict, background)
-            shap_values = explainer.shap_values(X_scaled[-1:], nsamples=100)
-            
-            # Get actual prediction for the last window
-            windows_single = np.expand_dims(X_scaled[-lookback:], 0)
-            windows_t_single = torch.from_numpy(windows_single).float()
-            logits_single = model_wrapper._batch_inference(windows_t_single)
-            pred_class = int(torch.argmax(logits_single, dim=1)[0])
+                sorted_impacts = sorted(
+                    feature_impacts.items(), key=lambda x: abs(x[1]), reverse=True
+                )
+                explanation = [{"feature": k, "impact": v} for k, v in sorted_impacts[:10]]
 
-            if isinstance(shap_values, list):
-                target_shap = shap_values[pred_class][0]
-            elif len(shap_values.shape) == 3:
-                target_shap = shap_values[0, :, pred_class]
-            else:
-                target_shap = shap_values[0]
+            except Exception as e:
+                print(f"SHAP TreeExplainer failed: {e}")
+                explanation = [{"feature": "Error", "impact": 0.0}]
+        else:
+            # Fallback to KernelExplainer for Deep Learning models
+            try:
+                import numpy as np
+                import torch
+                lookback = getattr(model_wrapper, 'config', {}).get('lookback', 60)
+                if len(X_scaled) < lookback:
+                    raise ValueError("Not enough data for sequence lookback")
+                    
+                background = X_scaled[-11:-1]
+                history = X_scaled[-lookback:-1] # The fixed history window
+                
+                def model_predict(x_pert):
+                    # x_pert has shape (N, features)
+                    N = len(x_pert)
+                    # Tile history for each perturbation
+                    hist_exp = np.tile(history, (N, 1, 1))
+                    x_exp = np.expand_dims(x_pert, 1)
+                    # Combine to shape (N, lookback, features)
+                    windows = np.concatenate([hist_exp, x_exp], axis=1)
+                    # PyTorchBaseModel expects (N, lookback, features)
+                    windows_t = torch.from_numpy(windows).float()
+                    # Run direct batch inference
+                    logits = model_wrapper._batch_inference(windows_t)
+                    return torch.softmax(logits, dim=1).numpy()
 
-            feature_impacts = {
-                feature_cols[i]: float(target_shap[i]) for i in range(len(feature_cols))
-            }
-            
-            if is_multimodal:
-                feature_impacts["News_Sentiment_Score"] = random.uniform(0.12, 0.3) if pred_class == 0 else random.uniform(-0.3, -0.12)
+                explainer = shap.KernelExplainer(model_predict, background)
+                shap_values = explainer.shap_values(X_scaled[-1:], nsamples=100)
+                
+                # Get actual prediction for the last window
+                windows_single = np.expand_dims(X_scaled[-lookback:], 0)
+                windows_t_single = torch.from_numpy(windows_single).float()
+                logits_single = model_wrapper._batch_inference(windows_t_single)
+                pred_class = int(torch.argmax(logits_single, dim=1)[0])
 
-            sorted_impacts = sorted(
-                feature_impacts.items(), key=lambda x: abs(x[1]), reverse=True
-            )
-            explanation = [{"feature": k, "impact": v} for k, v in sorted_impacts[:10]]
+                if isinstance(shap_values, list):
+                    target_shap = shap_values[pred_class][0]
+                elif len(shap_values.shape) == 3:
+                    target_shap = shap_values[0, :, pred_class]
+                else:
+                    target_shap = shap_values[0]
 
-        except Exception as e:
-            print(f"SHAP KernelExplainer failed: {e}")
-            explanation = [{"feature": "Hybrid Model Context Active", "impact": 0.05}]
+                feature_impacts = {
+                    feature_cols[i]: float(target_shap[i]) for i in range(len(feature_cols))
+                }
+                
+                sorted_impacts = sorted(
+                    feature_impacts.items(), key=lambda x: abs(x[1]), reverse=True
+                )
+                explanation = [{"feature": k, "impact": v} for k, v in sorted_impacts[:10]]
+
+            except Exception as e:
+                print(f"SHAP KernelExplainer failed: {e}")
+                explanation = [{"feature": "Hybrid Model Context Active", "impact": 0.05}]
+        return explanation
+
+    # Run the heavy SHAP calculation in a background thread to prevent blocking the event loop
+    explanation = await asyncio.to_thread(calculate_shap)
 
     return {"run_id": run_id, "symbol": symbol, "top_features": explanation}
 
