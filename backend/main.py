@@ -11,6 +11,7 @@ from backend.db.database import engine, Base
 from backend.api.routes import router as api_router
 from backend.api.websockets import router as ws_router
 from backend.api.auth import router as auth_router
+from backend.api.admin import router as admin_router
 
 # Create DB tables
 Base.metadata.create_all(bind=engine)
@@ -41,6 +42,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(admin_router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(ws_router)
 

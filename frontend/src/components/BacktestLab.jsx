@@ -159,7 +159,7 @@ export default function BacktestLab() {
               <select className={inputClass} value={strategy} onChange={e => setStrategy(e.target.value)}>
                 <option value="TripleBarrier">TripleBarrier (ATR TP/SL)</option>
                 <option value="MajorityVote">MajorityVote (Hold Trend)</option>
-                <option value="NaiveFlip">NaiveFlip (Instant React)</option>
+                <option value="ContinuousSignalExecution">ContinuousSignalExecution (Instant React)</option>
               </select>
             </div>
             <div className="grid grid-cols-2 gap-4">

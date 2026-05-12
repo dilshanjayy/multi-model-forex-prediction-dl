@@ -155,20 +155,20 @@ class TripleBarrierStrategy(MLBaseStrategy):
             pass
 
 
-class NaiveFlipStrategy(MLBaseStrategy):
+class ContinuousSignalExecutionStrategy(MLBaseStrategy):
     """
     RESEARCH BASELINE 1: The 'Naive Flip' (Absolute Baseline).
-    Responds instantly to every model signal change.
+    Responds instantly to every model signal change that passes the confidence threshold.
     """
 
     def next(self):
-        prediction, _ = self.get_prediction()
+        prediction, confidence = self.get_prediction()
 
-        if prediction == 0:  # Up (Alpha=0)
+        if prediction == 0 and confidence >= self.conf_threshold:  # Up
             if not self.position.is_long:
                 self.position.close()
                 self.buy(size=self.v_size)
-        elif prediction == 1:  # Down (Alpha=1)
+        elif prediction == 1 and confidence >= self.conf_threshold:  # Down
             if not self.position.is_short:
                 self.position.close()
                 self.sell(size=self.v_size)

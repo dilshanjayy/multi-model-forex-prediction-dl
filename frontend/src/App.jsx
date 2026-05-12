@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useMemo } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import { useStore } from "./store";
 import ChartWidget from "./components/ChartWidget";
@@ -14,6 +14,7 @@ import ModelSwitcher from "./components/ModelSwitcher";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import Portfolio from "./components/Portfolio";
+import AdminDashboard from "./components/AdminDashboard";
 
 export default function App() {
     const {
@@ -31,6 +32,18 @@ export default function App() {
     } = useStore();
 
     const [authView, setAuthView] = useState("login");
+
+    const decodedToken = useMemo(() => {
+        if (!token) return { sub: 'USER', is_admin: false };
+        try {
+            return JSON.parse(atob(token.split('.')[1]));
+        } catch {
+            return { sub: 'USER', is_admin: false };
+        }
+    }, [token]);
+
+    const isAdmin = decodedToken?.is_admin || false;
+    const username = decodedToken?.sub || 'USER';
 
     const fetchPrediction = useCallback(async () => {
         if (!selectedModel) return;
@@ -105,6 +118,7 @@ export default function App() {
                     direction: direction,
                     atr: liveData.atr,
                     multiplier: liveData.atr_multiplier,
+                    model_used: useStore.getState().selectedModel || "Manual",
                 }),
             });
             const data = await res.json();
@@ -184,6 +198,7 @@ export default function App() {
                         { id: "portfolio", label: "PORTFOLIO" },
                         { id: "explain", label: "MODEL X-RAY" },
                         { id: "lab", label: "BACKTEST LAB" },
+                        ...(isAdmin ? [{ id: "admin", label: "ADMIN PANEL" }] : [])
                     ].map((tab) => (
                         <button
                             key={tab.id}
@@ -207,7 +222,8 @@ export default function App() {
                     <div className="h-6 w-px bg-[#30363d]"></div>
                     <div className="flex items-center space-x-3">
                         <span className="text-[10px] font-bold text-[#8b949e] uppercase tracking-widest">
-                            {token ? (() => { try { return JSON.parse(atob(token.split('.')[1])).sub; } catch { return 'USER'; } })() : 'USER'}
+                            {isAdmin && <span className="text-[#f85149] mr-1">[ADMIN]</span>}
+                            {username}
                         </span>
                         <button onClick={logout} className="p-1.5 text-[#8b949e] hover:text-[#f85149] transition-colors" title="Logout">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -239,7 +255,7 @@ export default function App() {
                                         EURUSD
                                     </span>
                                     <span className="text-[9px] text-[#8b949e]">
-                                        H1
+                                        {liveData?.timeframe || 'H1'}
                                     </span>
                                 </div>
                                 <div className="h-3 w-px bg-[#30363d]"></div>
@@ -271,6 +287,7 @@ export default function App() {
                                     data={liveData?.chart}
                                     atr={liveData?.atr}
                                     atrMultiplier={liveData?.atr_multiplier}
+                                    signal={liveData?.signal}
                                 />
                             </div>
                         </div>
@@ -313,6 +330,12 @@ export default function App() {
                 )}
 
                 {activeTab === "portfolio" && <Portfolio />}
+                
+                {activeTab === "admin" && isAdmin && (
+                    <div className="h-full p-4 overflow-y-auto">
+                        <AdminDashboard />
+                    </div>
+                )}
             </main>
 
             {/* FOOTER STATUS BAR */}

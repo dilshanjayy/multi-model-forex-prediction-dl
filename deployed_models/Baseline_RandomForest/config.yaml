@@ -1,53 +1,51 @@
-backtest:
-  atr_multiplier: 3.0
-  cash: 10000.0
-  commission: 0.0001
-  margin: 0.02
-  strategy: TripleBarrier
-  v_size: 10000
-data:
-  atr_multipliers:
-  - 1.0
-  - 2.0
-  - 3.0
-  horizons:
-  - 5
-  - 12
-  - 24
-  processed_dir: data/processed_market
-  raw_input: data/raw_market/EURUSD_H1_20210501_20260331.csv
-  test_split_date: '2025-01-01'
-  val_split_date: '2024-01-01'
-model:
-  params:
-    batch_size: 64
-    class_weight: balanced
-    input_dim: 36
-    lookback: 60
-    max_depth: 10
-    n_estimators: 100
-    n_jobs: -1
-    random_state: 42
-  target: Target_12h_3.0x_TBM
-  type: RandomForest
-optimization:
-  search_space:
-    conf_threshold:
-    - 0.35
-    - 0.55
-    - 0.05
-    exit_atr_multiplier:
-    - 1.0
-    - 5.0
-    - 0.5
-    max_depth:
-    - 5
-    - 20
-    n_estimators:
-    - 50
-    - 300
-    - 50
 project:
   name: forex-baseline
   symbol: EURUSD
   timeframe: H1
+data:
+  raw_input: data/raw_market/EURUSD_H1_20210501_20260331.csv
+  processed_dir: data/processed_market
+  horizons:
+  - 5
+  - 12
+  - 24
+  atr_multipliers:
+  - 1.0
+  - 2.0
+  - 3.0
+  val_split_date: '2024-01-01'
+  test_split_date: '2025-01-01'
+model:
+  type: RandomForest
+  target: Target_12h_3.0x_TBM
+  params:
+    n_estimators: 100
+    max_depth: 10
+    random_state: 42
+    class_weight: balanced
+    n_jobs: -1
+backtest:
+  strategy: ContinuousSignalExecution
+  cash: 10000.0
+  commission: 0.0001
+  v_size: 10000
+  atr_multiplier: 3.0
+  margin: 0.02
+  conf_threshold: 0.5
+optimization:
+  search_space:
+    n_estimators:
+    - 50
+    - 300
+    - 50
+    max_depth:
+    - 5
+    - 20
+    exit_atr_multiplier:
+    - 1.0
+    - 5.0
+    - 0.5
+    conf_threshold:
+    - 0.35
+    - 0.55
+    - 0.05

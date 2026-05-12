@@ -11,7 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"
 from backtesting import Backtest
 from src.data.data_module import DataModule
 from src.strategies.base_strategies import (
-    NaiveFlipStrategy,
+    ContinuousSignalExecutionStrategy,
     MajorityVoteStrategy,
     TripleBarrierStrategy,
 )
@@ -48,6 +48,10 @@ def run_backtest_session(
     dm = DataModule(processed_dir)
     # Join features and metadata (price) for the backtester
     df = dm.prepare_dataset(components=["technical_features", "metadata"])
+    
+    if "time" in df.columns:
+        df["time"] = pd.to_datetime(df["time"], utc=True)
+        df.set_index("time", inplace=True)
     df.sort_index(inplace=True)
 
     # 2. Filter for Test Period
@@ -83,7 +87,7 @@ def run_backtest_session(
         return
     # 3. Strategy Mapping
     strategies = {
-        "NaiveFlip": NaiveFlipStrategy,
+        "ContinuousSignalExecution": ContinuousSignalExecutionStrategy,
         "MajorityVote": MajorityVoteStrategy,
         "TripleBarrier": TripleBarrierStrategy,
     }
@@ -155,7 +159,7 @@ if __name__ == "__main__":
         "--strategy",
         type=str,
         help="Strategy name",
-        choices=["NaiveFlip", "MajorityVote", "TripleBarrier"],
+        choices=["ContinuousSignalExecution", "MajorityVote", "TripleBarrier"],
     )
 
     args = parser.parse_args()

@@ -8,6 +8,7 @@ export default function Portfolio() {
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
     const [expandedTrade, setExpandedTrade] = useState(null);
+    const [chartError, setChartError] = useState(null);
 
     const chartContainerRef = useRef();
     const chartRef = useRef();
@@ -55,7 +56,8 @@ export default function Portfolio() {
 
     // Chart Initialization
     useEffect(() => {
-        if (!chartContainerRef.current) return;
+        // If container isn't ready or chart is already built, do nothing
+        if (!chartContainerRef.current || chartRef.current) return;
 
         const chart = createChart(chartContainerRef.current, {
             layout: {
@@ -89,21 +91,55 @@ export default function Portfolio() {
         seriesRef.current = series;
 
         const handleResize = () => {
-            chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+            if (chartContainerRef.current) {
+                chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+            }
         };
         window.addEventListener("resize", handleResize);
+
+        // If data arrived before chart was initialized, set it now
+        if (portfolioData?.equity_curve?.length > 0) {
+            try {
+                const uniqueData = [];
+                let lastTime = 0;
+                for (const pt of portfolioData.equity_curve) {
+                    let t = pt.time;
+                    if (t <= lastTime) t = lastTime + 1;
+                    uniqueData.push({ time: t, value: pt.value });
+                    lastTime = t;
+                }
+                series.setData(uniqueData);
+                chart.timeScale().fitContent();
+            } catch(e) {}
+        }
 
         return () => {
             window.removeEventListener("resize", handleResize);
             chart.remove();
+            chartRef.current = null;
         };
-    }, []);
+    }, [portfolioData !== null]); // Only run when portfolioData changes from null to populated
 
-    // Update Chart Data
+    // Update Chart Data if it arrives AFTER init
     useEffect(() => {
         if (seriesRef.current && portfolioData?.equity_curve) {
-            seriesRef.current.setData(portfolioData.equity_curve);
-            chartRef.current.timeScale().fitContent();
+            try {
+                if (portfolioData.equity_curve.length > 0) {
+                    const uniqueData = [];
+                    let lastTime = 0;
+                    for (const pt of portfolioData.equity_curve) {
+                        let t = pt.time;
+                        if (t <= lastTime) t = lastTime + 1;
+                        uniqueData.push({ time: t, value: pt.value });
+                        lastTime = t;
+                    }
+                    seriesRef.current.setData(uniqueData);
+                    chartRef.current.timeScale().fitContent();
+                }
+            } catch (err) {
+                console.error("Chart Error:", err);
+                setChartError(err.message);
+            }
         }
     }, [portfolioData]);
 
@@ -156,7 +192,13 @@ export default function Portfolio() {
                             <h2 className="text-[11px] font-bold tracking-widest text-white uppercase">Cumulative Equity Curve</h2>
                             <div className="text-[10px] text-[#8b949e] font-mono">PNL/TIME (USD)</div>
                         </div>
-                        <div ref={chartContainerRef} className="w-full" />
+                        {chartError ? (
+                            <div className="w-full h-[300px] flex items-center justify-center text-red-500 font-mono text-xs text-center p-4 border border-red-500/20 bg-red-500/5 rounded">
+                                CHART RENDER ERROR:<br/>{chartError}
+                            </div>
+                        ) : (
+                            <div ref={chartContainerRef} className="w-full h-[300px]" />
+                        )}
                     </div>
 
                     <div className="col-span-4 bg-[#0d1117] border border-[#30363d] rounded flex flex-col p-4">

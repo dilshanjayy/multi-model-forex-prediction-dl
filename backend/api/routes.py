@@ -100,7 +100,7 @@ class TradeRequest(BaseModel):
     direction: str
     atr: float
     multiplier: float
-
+    model_used: str
 
 class BacktestRequest(BaseModel):
     start_date: str
@@ -350,6 +350,7 @@ def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H
 
     return {
         "symbol": symbol,
+        "timeframe": timeframe,
         "price": current_price,
         "signal": signal_map.get(curr_pred, "UNKNOWN"),
         "prediction_class": curr_pred,
@@ -498,11 +499,14 @@ async def get_live_explanation(run_id: str, symbol: str = "EURUSD", timeframe: s
             try:
                 import numpy as np
                 import torch
+                import random
                 lookback = getattr(model_wrapper, 'config', {}).get('lookback', 60)
                 if len(X_scaled) < lookback:
                     raise ValueError("Not enough data for sequence lookback")
                     
-                background = X_scaled[-11:-1]
+                # Fix: Use a global random sample for SHAP background instead of just the last 10 hours
+                bg_indices = random.sample(range(len(X_scaled) - 1), min(10, len(X_scaled) - 1))
+                background = X_scaled[bg_indices]
                 history = X_scaled[-lookback:-1] # The fixed history window
                 
                 def model_predict(x_pert):
@@ -581,7 +585,7 @@ def execute_trade(req: TradeRequest, db: Session = Depends(get_db), current_user
         direction=req.direction,
         price=executed_price,
         lot_size=float(req.lot_size),
-        model_used="Live Execution",  # Could be passed from frontend
+        model_used=req.model_used,
         pnl=0.0, # Initial PnL is 0
         mt5_order_ticket=order_ticket,
         status="OPEN"
@@ -709,9 +713,11 @@ def get_portfolio(db: Session = Depends(get_db), current_user: models.User = Dep
         peak_equity = 0.0
         max_dd = 0.0
         
+        last_time = 0
         # Start with 0 point
         if trades_asc:
-            equity_curve.append({"time": int(trades_asc[0].timestamp.timestamp()) - 3600, "value": 0.0})
+            last_time = int(trades_asc[0].timestamp.timestamp()) - 3600
+            equity_curve.append({"time": last_time, "value": 0.0})
 
         pnl_list = []
         model_perf = {}
@@ -721,10 +727,15 @@ def get_portfolio(db: Session = Depends(get_db), current_user: models.User = Dep
             cumulative_pnl += pnl
             pnl_list.append(pnl)
             
+            current_time = int(t.timestamp.timestamp())
+            if current_time <= last_time:
+                current_time = last_time + 1
+            
             equity_curve.append({
-                "time": int(t.timestamp.timestamp()),
+                "time": current_time,
                 "value": round(cumulative_pnl, 2)
             })
+            last_time = current_time
 
             # Peak and Drawdown
             if cumulative_pnl > peak_equity:

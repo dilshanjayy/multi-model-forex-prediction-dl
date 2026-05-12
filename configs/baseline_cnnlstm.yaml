@@ -1,45 +1,45 @@
-# Baseline CNN-LSTM Configuration
 project:
-    name: "forex-cnnlstm"
-    symbol: "EURUSD"
-    timeframe: "H1"
-
+  name: forex-cnnlstm
+  symbol: EURUSD
+  timeframe: H1
 data:
-    raw_input: "data/raw_market/EURUSD_H1_20210501_20260331.csv"
-    processed_dir: "data/processed_market"
-    horizons: [12]
-    atr_multipliers: [3.0]
-
-    val_split_date: "2024-01-01"
-    test_split_date: "2025-01-01"
-
-    # Sequence length for CNN/LSTM - reduced for better focus on recent patterns
-    lookback: 48
-
+  raw_input: data/raw_market/EURUSD_H1_20210501_20260331.csv
+  processed_dir: data/processed_market
+  horizons:
+  - 12
+  atr_multipliers:
+  - 3.0
+  val_split_date: '2024-01-01'
+  test_split_date: '2025-01-01'
+  lookback: 48
 model:
-    type: "CNN-LSTM"
-    target: "Target_12h_3.0x_TBM"
-    batch_size: 64
-    params:
-        epochs: 100
-        learning_rate: 0.0005
-        weight_decay: 0.001
-        cnn_filters_1: 64
-        cnn_filters_2: 128
-        lstm_units: 100
-        kernel_size: 3
-        dropout: 0.4
-
+  type: CNN-LSTM
+  target: Target_12h_3.0x_TBM
+  batch_size: 64
+  params:
+    epochs: 100
+    learning_rate: 0.0005
+    weight_decay: 0.001
+    cnn_filters_1: 64
+    cnn_filters_2: 128
+    lstm_units: 100
+    kernel_size: 3
+    dropout: 0.4
 backtest:
-    strategy: "TripleBarrier"
-    cash: 10000.0
-    commission: 0.0001
-    v_size: 10000.0
-    atr_multiplier: 3.0
-    margin: 0.02
-    conf_threshold: 0.45
-
+  strategy: ContinuousSignalExecution
+  cash: 10000.0
+  commission: 0.0001
+  v_size: 10000.0
+  atr_multiplier: 3.0
+  margin: 0.02
+  conf_threshold: 0.5
 optimization:
-    search_space:
-        exit_atr_multiplier: [1.5, 4.0, 0.5]
-        conf_threshold: [0.35, 0.55, 0.05]
+  search_space:
+    exit_atr_multiplier:
+    - 1.5
+    - 4.0
+    - 0.5
+    conf_threshold:
+    - 0.35
+    - 0.55
+    - 0.05

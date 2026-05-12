@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { createChart } from 'lightweight-charts';
 
-export default function ChartWidget({ data, atr, atrMultiplier }) {
+export default function ChartWidget({ data, atr, atrMultiplier, signal }) {
   const chartContainerRef = useRef();
   const chartRef = useRef();
 
@@ -26,19 +26,23 @@ export default function ChartWidget({ data, atr, atrMultiplier }) {
 
     const candleSeries = chart.addCandlestickSeries({
       upColor: '#3fb950', downColor: '#f85149',
-      borderVisible: false, wickUpColor: '#3fb950', wickDownColor: '#f85149'
+      borderVisible: false, wickUpColor: '#3fb950', wickDownColor: '#f85149',
+      priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }
     });
 
     const emaSeries = chart.addLineSeries({
-      color: '#58a6ff', lineWidth: 1, title: 'EMA 20'
+      color: '#58a6ff', lineWidth: 1, title: 'EMA 20',
+      priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }
     });
 
     const tpSeries = chart.addLineSeries({
-      color: '#3fb950', lineWidth: 1, lineStyle: 2, title: 'TP'
+      color: '#3fb950', lineWidth: 1, lineStyle: 2, title: 'TP',
+      priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }
     });
 
     const slSeries = chart.addLineSeries({
-      color: '#f85149', lineWidth: 1, lineStyle: 2, title: 'SL'
+      color: '#f85149', lineWidth: 1, lineStyle: 2, title: 'SL',
+      priceFormat: { type: 'price', precision: 4, minMove: 0.0001 }
     });
 
     if (data?.candles?.length > 0) {
@@ -52,20 +56,34 @@ export default function ChartWidget({ data, atr, atrMultiplier }) {
          emaSeries.setData(data.ema);
       }
       
-      if (atr && atrMultiplier && data.candles.length > 0) {
+      if (atr && atrMultiplier && data.candles.length > 0 && signal && signal !== 'NEUTRAL' && signal !== 'HOLD' && signal !== 'UNKNOWN') {
         const lastPrice = data.candles[data.candles.length - 1].close;
         const dist = atr * atrMultiplier;
         
-        const tpData = data.candles.slice(-15).map(c => ({ time: c.time, value: lastPrice + dist }));
-        const slData = data.candles.slice(-15).map(c => ({ time: c.time, value: lastPrice - dist }));
+        let tpValue, slValue;
+        if (signal === 'BUY') {
+            tpValue = lastPrice + dist;
+            slValue = lastPrice - dist;
+        } else if (signal === 'SELL') {
+            tpValue = lastPrice - dist;
+            slValue = lastPrice + dist;
+        }
         
-        tpSeries.setData(tpData);
-        slSeries.setData(slData);
+        if (tpValue && slValue) {
+            const tpData = data.candles.slice(-15).map(c => ({ time: c.time, value: tpValue }));
+            const slData = data.candles.slice(-15).map(c => ({ time: c.time, value: slValue }));
+            tpSeries.setData(tpData);
+            slSeries.setData(slData);
+        }
+      } else {
+         // Clear TP/SL if signal is neutral
+         tpSeries.setData([]);
+         slSeries.setData([]);
       }
     }
 
     return () => chart.remove();
-  }, [data, atr, atrMultiplier]);
+  }, [data, atr, atrMultiplier, signal]);
 
   return <div ref={chartContainerRef} className="w-full h-full" />;
 }

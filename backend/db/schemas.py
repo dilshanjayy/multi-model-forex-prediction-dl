@@ -11,12 +11,14 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: Optional[str] = None
+    is_admin: Optional[bool] = False
 
 
 # User Schemas
 class UserBase(BaseModel):
     username: str
     email: EmailStr
+    is_admin: bool = False
 
 
 class UserCreate(UserBase):

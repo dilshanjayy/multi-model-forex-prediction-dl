@@ -1,54 +1,47 @@
-# MultiModal Hybrid CNN-LSTM Configuration
 project:
-    name: "multi-modal-cnnlstm"
-    symbol: "EURUSD"
-    timeframe: "H1"
-
+  name: multi-modal-cnnlstm
+  symbol: EURUSD
+  timeframe: H1
 data:
-    # This file starts in 2021, matching our news coverage
-    raw_input: "data/raw_market/EURUSD_H1_20210501_20260331.csv"
-    processed_dir: "data/processed_market_multimodal"
-    feature_pipeline: "nguyen_2024"
-    horizons: [12]
-    atr_multipliers: [3.0]
-
-    # Training Split
-    val_split_date: "2024-01-01"
-    test_split_date: "2025-01-01"
-
-    # Sequence length for CNN/LSTM
-    lookback: 120
-
+  raw_input: data/raw_market/EURUSD_H1_20210501_20260331.csv
+  processed_dir: data/processed_market_multimodal
+  feature_pipeline: nguyen_2024
+  horizons:
+  - 12
+  atr_multipliers:
+  - 3.0
+  val_split_date: '2024-01-01'
+  test_split_date: '2025-01-01'
+  lookback: 120
 model:
-    type: "CNN-LSTM"
-    # NEW: Triggers the sentiment join in DataModule
-    modality: "MultiModal"
-
-    # Triple Barrier Target
-    target: "Target_12h_3.0x_TBM"
-
-    batch_size: 64
-    params:
-        epochs: 100
-        learning_rate: 0.00005
-        weight_decay: 0.001
-        cnn_filters_1: 32
-        cnn_filters_2: 64
-        lstm_units: 50
-        kernel_size: 3
-        dropout: 0.3
-
+  type: CNN-LSTM
+  modality: MultiModal
+  target: Target_12h_3.0x_TBM
+  batch_size: 64
+  params:
+    epochs: 100
+    learning_rate: 5.0e-05
+    weight_decay: 0.001
+    cnn_filters_1: 32
+    cnn_filters_2: 64
+    lstm_units: 50
+    kernel_size: 3
+    dropout: 0.3
 backtest:
-    strategy: "TripleBarrier"
-    cash: 10000.0
-    commission: 0.0001
-    v_size: 10000.0
-    atr_multiplier: 3.0
-    margin: 0.02
-    conf_threshold: 0.45
-
+  strategy: ContinuousSignalExecution
+  cash: 10000.0
+  commission: 0.0001
+  v_size: 10000.0
+  atr_multiplier: 3.0
+  margin: 0.02
+  conf_threshold: 0.5
 optimization:
-    search_space:
-        exit_atr_multiplier: [1.0, 5.0, 0.5]
-        conf_threshold: [0.35, 0.60, 0.05]
-
+  search_space:
+    exit_atr_multiplier:
+    - 1.0
+    - 5.0
+    - 0.5
+    conf_threshold:
+    - 0.35
+    - 0.6
+    - 0.05

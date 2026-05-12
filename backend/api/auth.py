@@ -49,9 +49,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
+        is_admin: bool = payload.get("is_admin", False)
         if username is None:
             raise credentials_exception
-        token_data = schemas.TokenData(username=username)
+        token_data = schemas.TokenData(username=username, is_admin=is_admin)
     except jwt.InvalidTokenError:
         raise credentials_exception
     
@@ -59,6 +60,15 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user is None:
         raise credentials_exception
     return user
+
+# Dependency to get current admin user
+def get_current_admin_user(current_user: models.User = Depends(get_current_user)):
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The user doesn't have enough privileges"
+        )
+    return current_user
 
 
 # Authentication Endpoints
@@ -73,6 +83,7 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
         
     hashed_password = get_password_hash(user.password)
+    # Default is_admin is False (from models)
     new_user = models.User(
         username=user.username, 
         email=user.email, 
@@ -94,6 +105,6 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+        data={"sub": user.username, "is_admin": user.is_admin}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
