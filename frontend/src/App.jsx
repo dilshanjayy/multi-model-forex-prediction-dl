@@ -255,7 +255,7 @@ export default function App() {
                                         EURUSD
                                     </span>
                                     <span className="text-[9px] text-[#8b949e]">
-                                        {liveData?.timeframe || 'H1'}
+                                        {modelDetails?.config?.project?.timeframe || liveData?.timeframe || 'H1'}
                                     </span>
                                 </div>
                                 <div className="h-3 w-px bg-[#30363d]"></div>

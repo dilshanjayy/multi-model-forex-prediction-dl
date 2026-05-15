@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 export default function NewsTicker() {
   const [news, setNews] = useState([]);
+  const [isFallback, setIsFallback] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -12,7 +13,10 @@ export default function NewsTicker() {
       try {
         const res = await fetch('http://localhost:8000/api/v1/news?limit=15');
         const data = await res.json();
-        if (isActive) setNews(data.news || []);
+        if (isActive) {
+            setNews(data.news || []);
+            setIsFallback(data.is_fallback || false);
+        }
       } catch (err) {
         console.error("Error fetching news:", err);
       }
@@ -30,7 +34,14 @@ export default function NewsTicker() {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[#0d1117]">
-      <div className="pane-header !border-t-0">LIVE SENTIMENT FEED</div>
+      <div className="pane-header !border-t-0 flex justify-between items-center pr-2">
+        <span>LIVE SENTIMENT FEED</span>
+        {isFallback && (
+            <span className="text-[7px] bg-[#f8514920] text-[#f85149] border border-[#f8514930] px-1 rounded font-black animate-pulse">
+                SIMULATION MODE
+            </span>
+        )}
+      </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
         {news.length === 0 ? (
           <div className="text-[10px] text-[#8b949e] italic p-4 text-center">Waiting for news stream...</div>

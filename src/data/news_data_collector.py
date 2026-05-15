@@ -10,6 +10,7 @@ def fetch_news_data(date_range: str = "03012026-03312026") -> pd.DataFrame | Non
     date_range format: MMDDYYYY-MMDDYYYY
     """
     API_TOKEN = "hfysogcq8xpwyt4abvbyqoyllonrre3ndg8a6oeo"
+    # API_TOKEN = "test"
     BASE_URL = "https://forexnewsapi.com/api/v1"
     CURRENCY_PAIR = "EUR-USD"
 
