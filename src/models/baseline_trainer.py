@@ -27,26 +27,30 @@ def run_baseline_training(
     df = dm.prepare_dataset(components=["technical_features", "targets"])
     df.sort_index(inplace=True)
 
-    # 1. Temporal Split
+    # Temporal Split
     if config and "train_split_pct" in config.get("data", {}):
         train_pct = config["data"]["train_split_pct"]
         val_pct = config["data"].get("val_split_pct", (1.0 - train_pct) / 2)
         test_pct = 1.0 - train_pct - val_pct
-        
+
         n_samples = len(df)
         train_end = int(n_samples * train_pct)
         val_end = int(n_samples * (train_pct + val_pct))
-        
-        print(f"Splitting data chronologically by percentage: Train ({train_pct:.0%}), Val ({val_pct:.0%}), Test ({test_pct:.0%})...")
+
+        print(
+            f"Splitting data chronologically by percentage: Train ({train_pct:.0%}), Val ({val_pct:.0%}), Test ({test_pct:.0%})..."
+        )
         train_df = df.iloc[:train_end].copy()
         val_df = df.iloc[train_end:val_end].copy()
         test_df = df.iloc[val_end:].copy()
-        
-        print(f"--- Data Split Audit ---")
-        print(f"Train: {train_df.index[0]} to {train_df.index[-1]} ({len(train_df)} rows)")
+
+        print("--- Data Split Audit ---")
+        print(
+            f"Train: {train_df.index[0]} to {train_df.index[-1]} ({len(train_df)} rows)"
+        )
         print(f"Val:   {val_df.index[0]} to {val_df.index[-1]} ({len(val_df)} rows)")
         print(f"Test:  {test_df.index[0]} to {test_df.index[-1]} ({len(test_df)} rows)")
-        print(f"------------------------")
+        print("------------------------")
     else:
         print(
             f"Splitting data into Train (< {val_split_date}), Val ({val_split_date} to {test_split_date}), and Test (>= {test_split_date})..."
@@ -59,39 +63,48 @@ def run_baseline_training(
         print("Error: Split dates result in empty train, val, or test set.")
         return
 
-    # 2. Target Identification
+    # Target Identification
     print(f"Loading target labels from '{target_col}' column...")
     train_df["Target"] = train_df[target_col]
     val_df["Target"] = val_df[target_col]
     test_df["Target"] = test_df[target_col]
     lower_threshold, upper_threshold = 0, 0
 
-    # 3. Prepare Features
+    # Prepare Features
     target_cols = [c for c in df.columns if "Target" in c or "LogRet" in c]
     # Explicitly exclude metadata and time-based columns
     exclude_cols = [
-        "Open", "High", "Low", "Close", "Volume", 
-        "open", "high", "low", "close", "tick_volume", 
-        "time", "spread"
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume",
+        "open",
+        "high",
+        "low",
+        "close",
+        "tick_volume",
+        "time",
+        "spread",
     ]
     feature_cols = [
         c
         for c in df.columns
         if c not in target_cols and c not in exclude_cols and c != "Target"
     ]
-    feature_cols.sort() # Ensure deterministic order for scaler synchronization
+    feature_cols.sort()  # Ensure deterministic order for scaler synchronization
 
     X_train = train_df[feature_cols]
     y_train = train_df["Target"].to_numpy()
     X_val = val_df[feature_cols]
     y_val = val_df["Target"].to_numpy()
 
-    # 4. Feature Scaling
+    # Feature Scaling
     scaler = RobustScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_val_scaled = scaler.transform(X_val)
 
-    # 5. Model Instantiation & Training
+    # Model Instantiation & Training
     model_config = config.get("model", {}) if config else {}
     model_type = model_config.get("type", "RandomForest")
     model_params = model_config.get("params", {})
@@ -116,31 +129,27 @@ def run_baseline_training(
         # Extract values safely for Pylance
         lookback = model_params.get("lookback", 60)
         batch_size = model_params.get("batch_size", 64)
-        
-        # 5a. Create Sequential DataLoaders
+
+        # Create Sequential DataLoaders
         generator = TimeSeriesWindowGenerator(
-            lookback=lookback, 
-            batch_size=batch_size, 
+            lookback=lookback,
+            batch_size=batch_size,
             feature_cols=list(feature_cols),
-            scaler=scaler
+            scaler=scaler,
         )
         train_loader, val_loader, test_loader = generator.prepare_loaders(
-            train_df, val_df, test_df,
-            target_col="Target"
+            train_df, val_df, test_df, target_col="Target"
         )
-        
-        # 5b. Train using PyTorch training loop
+
+        # Train using PyTorch training loop
         model_wrapper.train_model(train_loader, val_loader)
-        
+
         # Final evaluation on Validation Set (Sequence Mode)
-        # For simplicity in evaluation report, we use numpy predictions
-        # but modern models usually stay in DataLoader mode.
     else:
         # Standard Tabular Training
         model_wrapper.fit(X_train_scaled, y_train)
 
-    # 6. Evaluation (Common Interface)
-    # We evaluate on the Validation set for the console report
+    # Evaluation
     y_val_pred = model_wrapper.predict(X_val_scaled)
     acc = accuracy_score(y_val, y_val_pred)
     report = classification_report(
@@ -151,7 +160,7 @@ def run_baseline_training(
     )
     print(f"\nModel Evaluation (Validation Set) - Accuracy: {acc:.4f}")
 
-    # 7. Save Artifacts
+    # Save Artifacts
     os.makedirs(experiment_dir, exist_ok=True)
 
     # Get horizon from target column name
@@ -197,4 +206,3 @@ def run_baseline_training(
 
     print(f"\nExperiment complete. Artifacts saved to: {experiment_dir}")
     return model_wrapper
-

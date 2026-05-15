@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 
 from backend.db.database import Base
 
+
 class User(Base):
     __tablename__ = "users"
 
@@ -28,10 +29,10 @@ class Trade(Base):
     lot_size = Column(Float)
     model_used = Column(String)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
-    pnl = Column(Float, nullable=True) # Simulated PnL
-    
+    pnl = Column(Float, nullable=True)  # Simulated PnL
+
     # MT5 Sync Fields
     mt5_order_ticket = Column(Integer, nullable=True)
-    status = Column(String, default="OPEN") # OPEN, CLOSED
+    status = Column(String, default="OPEN")  # OPEN, CLOSED
 
     user = relationship("User", back_populates="trades")

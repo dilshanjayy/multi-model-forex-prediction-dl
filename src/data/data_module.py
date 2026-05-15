@@ -18,7 +18,7 @@ class DataModule:
 
     def prepare_sentiment_component(self, target_index: pd.DatetimeIndex) -> pd.DataFrame:
         """
-        Loads the raw sentiment scores and resamples them to match 
+        Loads the raw sentiment scores and resamples them to match
         the target market data timeframe and index.
         """
         path = "data/raw_sentiment/news_with_sentiment_scores.csv"
@@ -37,10 +37,9 @@ class DataModule:
         df['time'] = pd.to_datetime(df['time'], utc=True).dt.floor("s")
         df.set_index('time', inplace=True)
 
-        # 1. Resample to the target frequency (detected from target_index)
-        # We take the mean of sentiment in each bucket
+        # Resample to the target frequency (detected from target_index)
         freq = target_index.inferred_freq
-        
+
         # Smart Frequency Detection for Forex (Handles weekend gaps)
         if freq is None:
             # Calculate median diff between bars
@@ -49,15 +48,14 @@ class DataModule:
                 freq = "1D"
             else:
                 freq = "1h"
-        
+
         # Standardize for modern Pandas
         if freq == "H": freq = "1h"
         if freq == "D": freq = "1D"
 
         resampled = df[['sent_pos', 'sent_neg', 'sent_neu', 'sentiment_score']].resample(freq).mean()
 
-        # 2. Reindex to match the EXACT market bars (fills gaps with NaN)
-        # This ensures we have a sentiment value for every single price bar
+        # Reindex to match the EXACT market bars (fills gaps with NaN)
         resampled = resampled.reindex(target_index)
 
         # 3. Fill NaNs (Empty hours/periods) as Neutral
@@ -74,14 +72,14 @@ class DataModule:
         """
         base_df = None
         sentiment_requested = "sentiment" in components
-        
+
         # Filter out virtual components from the disk-loading loop
         disk_components = [c for c in components if c != "sentiment"]
 
         for comp in disk_components:
             df = self.load_component(comp)
             # FORCE UTC and normalize precision to 'ns' to ensure cross-OS compatibility
-            df["time"] = pd.to_datetime(df["time"], utc=True).dt.floor("s") 
+            df["time"] = pd.to_datetime(df["time"], utc=True).dt.floor("s")
             df.set_index("time", inplace=True)
 
             if base_df is None:

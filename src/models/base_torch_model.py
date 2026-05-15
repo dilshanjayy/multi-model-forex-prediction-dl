@@ -44,13 +44,11 @@ class PyTorchBaseModel(BaseModel, nn.Module):
         self.to(self.device)
         print(f"Starting Training on {self.device}...")
 
-        # 1. Balanced Class Weights (Focus on directional signals)
-        # BUG FIX: Use ONLY the labels associated with the active training windows
-        # train_loader.dataset.y contains all labels, but we only use [lookback-1:]
+        # Balanced Class Weights (Focus on directional signals)
         all_labels_full = train_loader.dataset.y.cpu().numpy()
         lookback = self.config.get("lookback", 60)
-        active_labels = all_labels_full[lookback - 1:]
-        
+        active_labels = all_labels_full[lookback - 1 :]
+
         class_counts = np.bincount(active_labels, minlength=3)
         class_counts = np.maximum(class_counts, 1)
         weights = 1.0 / class_counts
@@ -62,10 +60,10 @@ class PyTorchBaseModel(BaseModel, nn.Module):
         print(f"Applied Class Weights: {weights}")
         self.criterion = nn.CrossEntropyLoss(weight=class_weights)
 
-        # 2. Optimizer with optional L2 Regularization (Weight Decay)
+        # Optimizer with optional L2 Regularization (Weight Decay)
         wd = float(self.config.get("weight_decay", 0.0))
         optimizer = optim.Adam(self.parameters(), lr=self.lr, weight_decay=wd)
-        
+
         best_val_loss = float("inf")
         self.best_state = self.state_dict()  # Initial state
         patience = 15
@@ -104,9 +102,12 @@ class PyTorchBaseModel(BaseModel, nn.Module):
             # Optuna Pruning: Report the validation loss back to the optimizer
             if trial is not None:
                 import optuna
+
                 trial.report(avg_val, epoch)
                 if trial.should_prune():
-                    print(f"Trial pruned by Optuna at epoch {epoch + 1} due to poor performance.")
+                    print(
+                        f"Trial pruned by Optuna at epoch {epoch + 1} due to poor performance."
+                    )
                     raise optuna.TrialPruned()
 
             # Always track and save the best state
@@ -197,7 +198,7 @@ class PyTorchBaseModel(BaseModel, nn.Module):
 
     def load(self, path: str):
         self.load_state_dict(torch.load(path, map_location=self.device), strict=False)
-        self.to(self.device) # Force sync weights to the correct device
+        self.to(self.device)  # Force sync weights to the correct device
 
     @property
     def expects_sequences(self) -> bool:

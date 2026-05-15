@@ -5,17 +5,19 @@ from sklearn.ensemble import RandomForestClassifier
 from src.models.base_model import BaseModel
 import inspect
 
+
 class RFModel(BaseModel):
     """
     Random Forest Implementation of the BaseModel.
     """
+
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
-        
+
         # Filter config to only valid RandomForestClassifier kwargs to prevent crashes
         valid_args = inspect.signature(RandomForestClassifier).parameters
         rf_config = {k: v for k, v in self.config.items() if k in valid_args}
-        
+
         self.model = RandomForestClassifier(**rf_config)
 
     def fit(self, X_train: np.ndarray, y_train: np.ndarray):

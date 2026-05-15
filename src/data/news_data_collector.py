@@ -77,7 +77,7 @@ def fetch_news_data(date_range: str = "03012026-03312026") -> pd.DataFrame | Non
 
     # 4. Final Persistence
     df = pd.DataFrame(news_list)
-    
+
     # --- UTC CONVERSION ---
     # The API returns time in GMT-0400. We convert to UTC for market data alignment.
     df["time"] = pd.to_datetime(df["time"], utc=True)

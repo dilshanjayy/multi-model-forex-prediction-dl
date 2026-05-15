@@ -20,8 +20,7 @@ class CNNLSTMModel(PyTorchBaseModel):
         kernel_size = config.get("kernel_size", 3)
         dropout = config.get("dropout", 0.2)
 
-        # 1. CNN Stage (Feature Extraction)
-        # We use Conv1d to scan for local price patterns
+        # CNN Stage (Feature Extraction)
         self.cnn_block = nn.Sequential(
             # Input: (Batch, Features, Time)
             nn.Conv1d(
@@ -40,7 +39,7 @@ class CNNLSTMModel(PyTorchBaseModel):
             nn.ReLU(),
         )
 
-        # 2. LSTM Stage (Sequence Tracking)
+        # LSTM Stage (Sequence Tracking)
         self.lstm = nn.LSTM(
             input_size=cnn_filters_2,
             hidden_size=lstm_units,
@@ -49,7 +48,7 @@ class CNNLSTMModel(PyTorchBaseModel):
             dropout=0,  # num_layers is 1
         )
 
-        # 3. Output Head
+        # Output Head
         self.fc_out = nn.Sequential(
             nn.Dropout(dropout),
             nn.Linear(lstm_units, 3),  # 3 classes: Up, Down, Neutral
@@ -59,7 +58,7 @@ class CNNLSTMModel(PyTorchBaseModel):
         """
         Input x shape: (Batch, Seq_Len, Features)
         """
-        # CNN expects (Batch, Channels, Time), so we transpose
+        # CNN expects (Batch, Channels, Time)
         # From: (Batch, Time, Features) -> (Batch, Features, Time)
         x = x.transpose(1, 2)
 
@@ -72,7 +71,6 @@ class CNNLSTMModel(PyTorchBaseModel):
         # LSTM Temporal Tracking
         lstm_out, _ = self.lstm(x)
 
-        # We only care about the very last time step
         last_step = lstm_out[:, -1, :]
 
         # Map to class logits

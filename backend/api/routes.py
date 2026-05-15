@@ -7,11 +7,12 @@ from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime, timedelta, timezone
+import asyncio
 
 from src.data.live_collector import fetch_live_data
 from src.execution.trader import execute_market_order
 from src.evaluation.backtester import run_backtest_session
-from src.data.sentiment_processor import score_headlines, get_sentiment_engine
+from src.data.sentiment_processor import score_headlines
 from src.data.news_data_collector import fetch_news_data
 
 from backend.db.database import get_db
@@ -24,16 +25,17 @@ MODELS_DIR = "deployed_models"
 
 import threading
 
+
 # --- LIVE SENTIMENT CACHE ---
 class LiveSentimentStore:
     def __init__(self):
         self.last_fetch = None
         self.cached_news = []
         self.cached_scores = {
-            'sent_pos': 0.0,
-            'sent_neg': 0.0,
-            'sent_neu': 1.0,
-            'sentiment_score': 0.0
+            "sent_pos": 0.0,
+            "sent_neg": 0.0,
+            "sent_neu": 1.0,
+            "sentiment_score": 0.0,
         }
         self.ttl_minutes = 5
         self._is_refreshing = False
@@ -41,7 +43,7 @@ class LiveSentimentStore:
     def get_live_data(self):
         now = datetime.now(timezone.utc)
         if self.last_fetch is None:
-            self.refresh() # Block on first load
+            self.refresh()  # Block on first load
         elif (now - self.last_fetch) > timedelta(minutes=self.ttl_minutes):
             if not self._is_refreshing:
                 self._is_refreshing = True
@@ -56,34 +58,40 @@ class LiveSentimentStore:
             start_d = end_d - timedelta(days=2)
             fmt = "%m%d%Y"
             range_str = f"{start_d.strftime(fmt)}-{end_d.strftime(fmt)}"
-            
+
             df = fetch_news_data(range_str)
             if df is not None and not df.empty:
                 latest = df.head(10).copy()
-                probs = score_headlines(latest['title'].tolist(), latest['text'].tolist())
-                
-                latest['sent_pos'] = probs[:, 0]
-                latest['sent_neg'] = probs[:, 1]
-                latest['sent_neu'] = probs[:, 2]
-                latest['sentiment_score'] = latest['sent_pos'] - latest['sent_neg']
-                latest['sentiment_label'] = latest['sentiment_score'].apply(
-                    lambda x: 'Positive' if x > 0.05 else ('Negative' if x < -0.05 else 'Neutral')
+                probs = score_headlines(
+                    latest["title"].tolist(), latest["text"].tolist()
                 )
-                
-                if 'time' in latest.columns:
-                    latest['time'] = pd.to_datetime(latest['time'], utc=True)
-                
-                self.cached_news = latest.to_dict('records')
-                
+
+                latest["sent_pos"] = probs[:, 0]
+                latest["sent_neg"] = probs[:, 1]
+                latest["sent_neu"] = probs[:, 2]
+                latest["sentiment_score"] = latest["sent_pos"] - latest["sent_neg"]
+                latest["sentiment_label"] = latest["sentiment_score"].apply(
+                    lambda x: (
+                        "Positive"
+                        if x > 0.05
+                        else ("Negative" if x < -0.05 else "Neutral")
+                    )
+                )
+
+                if "time" in latest.columns:
+                    latest["time"] = pd.to_datetime(latest["time"], utc=True)
+
+                self.cached_news = latest.to_dict("records")
+
                 # Ensure values are JSON serializable
                 for item in self.cached_news:
-                    if isinstance(item.get('time'), pd.Timestamp):
-                        item['time'] = item['time'].isoformat()
+                    if isinstance(item.get("time"), pd.Timestamp):
+                        item["time"] = item["time"].isoformat()
                 self.cached_scores = {
-                    'sent_pos': float(probs.mean(axis=0)[0]),
-                    'sent_neg': float(probs.mean(axis=0)[1]),
-                    'sent_neu': float(probs.mean(axis=0)[2]),
-                    'sentiment_score': float((probs[:, 0] - probs[:, 1]).mean())
+                    "sent_pos": float(probs.mean(axis=0)[0]),
+                    "sent_neg": float(probs.mean(axis=0)[1]),
+                    "sent_neu": float(probs.mean(axis=0)[2]),
+                    "sentiment_score": float((probs[:, 0] - probs[:, 1]).mean()),
                 }
                 self.last_fetch = now
                 print(f"--- Live Sentiment Updated: {len(self.cached_news)} items ---")
@@ -92,7 +100,9 @@ class LiveSentimentStore:
         finally:
             self._is_refreshing = False
 
+
 SENTIMENT_STORE = LiveSentimentStore()
+
 
 class TradeRequest(BaseModel):
     symbol: str
@@ -101,6 +111,7 @@ class TradeRequest(BaseModel):
     atr: float
     multiplier: float
     model_used: str
+
 
 class BacktestRequest(BaseModel):
     start_date: str
@@ -117,9 +128,7 @@ def get_models():
         return {"models": []}
 
     runs = [
-        d
-        for d in os.listdir(MODELS_DIR)
-        if os.path.isdir(os.path.join(MODELS_DIR, d))
+        d for d in os.listdir(MODELS_DIR) if os.path.isdir(os.path.join(MODELS_DIR, d))
     ]
     return {"models": sorted(runs, reverse=True)}
 
@@ -144,8 +153,9 @@ def get_model_details(run_id: str):
         if os.path.exists(stats_path):
             with open(stats_path, "r") as f:
                 stats_data = json.load(f)
-                
+
             import math
+
             # Clean NaN values to None for valid JSON serialization
             for key, value in stats_data.items():
                 if isinstance(value, float) and math.isnan(value):
@@ -154,18 +164,24 @@ def get_model_details(run_id: str):
         return {"run_id": run_id, "config": config_data, "stats": stats_data}
     except Exception as e:
         import traceback
+
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error in get_model_details: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error in get_model_details: {str(e)}"
+        )
 
 
 # Global cache for loaded models
 MODEL_CACHE = {}
 
+
 def preload_all_models():
     """Pre-loads all models in the deployed_models directory into memory."""
     if not os.path.exists(MODELS_DIR):
         return
-    runs = [d for d in os.listdir(MODELS_DIR) if os.path.isdir(os.path.join(MODELS_DIR, d))]
+    runs = [
+        d for d in os.listdir(MODELS_DIR) if os.path.isdir(os.path.join(MODELS_DIR, d))
+    ]
     print(f"--- Pre-loading {len(runs)} Trading Models into RAM ---")
     for run_id in runs:
         try:
@@ -174,6 +190,7 @@ def preload_all_models():
         except Exception as e:
             print(f"Failed to load {run_id}: {e}")
     print("--- All Models Ready ---")
+
 
 def get_loaded_model(run_id: str):
     if run_id in MODEL_CACHE:
@@ -186,16 +203,19 @@ def get_loaded_model(run_id: str):
         raise HTTPException(status_code=404, detail="Model artifact not found")
 
     from src.models.model_factory import ModelFactory
+
     artifacts = joblib.load(model_path)
-    
+
     if "model_type" in artifacts:
-        model = ModelFactory.get_model(artifacts["model_type"], artifacts.get("model_params", {}))
+        model = ModelFactory.get_model(
+            artifacts["model_type"], artifacts.get("model_params", {})
+        )
         state_path = model_path.replace("model.joblib", "model_state.joblib")
         if os.path.exists(state_path):
             model.load(state_path)
     else:
         model = artifacts["model"]
-        
+
     scaler = artifacts["scaler"]
     feature_cols = artifacts["feature_cols"]
     atr_mult = artifacts.get("atr_multiplier", 3.0)
@@ -204,9 +224,10 @@ def get_loaded_model(run_id: str):
         "model": model,
         "scaler": scaler,
         "feature_cols": feature_cols,
-        "atr_mult": atr_mult
+        "atr_mult": atr_mult,
     }
     return MODEL_CACHE[run_id]
+
 
 @router.post("/predict/{run_id}")
 def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H1"):
@@ -224,6 +245,7 @@ def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H
         raise he
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error loading model: {str(e)}")
 
@@ -231,14 +253,14 @@ def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H
     config_path = os.path.join(run_path, "config.yaml")
     pipeline_name = "default"
     is_multi_modal = False
-    
+
     if os.path.exists(config_path):
         with open(config_path, "r") as f:
             content = f.read()
             cfg = yaml.safe_load(content)
             pipeline_name = cfg.get("data", {}).get("feature_pipeline", "default")
             modality = cfg.get("model", {}).get("modality", "Technical")
-            is_multi_modal = (modality == "MultiModal")
+            is_multi_modal = modality == "MultiModal"
 
     # Fetch live data
     df = fetch_live_data(symbol, timeframe, count=500, pipeline_name=pipeline_name)
@@ -252,12 +274,14 @@ def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H
         _, live_scores = SENTIMENT_STORE.get_live_data()
         for col, val in live_scores.items():
             df[col] = val
-        print(f"--- Injected Live Sentiment Score: {live_scores['sentiment_score']:.4f} ---")
+        print(
+            f"--- Injected Live Sentiment Score: {live_scores['sentiment_score']:.4f} ---"
+        )
 
     # DEMO FIX: Restore missing columns for older model weights
     if "RSI_14" not in df.columns and "RSI_14_Z" in df.columns:
         df["RSI_14"] = df["RSI_14_Z"] * 10 + 50
-    
+
     if "real_volume" in feature_cols and "real_volume" not in df.columns:
         df["real_volume"] = 0.0
 
@@ -265,17 +289,15 @@ def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H
     try:
         # Prepare Data for inference
         lookback = 60
-        if hasattr(model, 'config'):
-            lookback = model.config.get('lookback', 60)
-            
-        # We need 200 predictions for the chart markers, so we need 200 + lookback - 1 rows
+        if hasattr(model, "config"):
+            lookback = model.config.get("lookback", 60)
+
         needed_rows = 200 + lookback
         X_raw = df[feature_cols].tail(needed_rows)
         X_scaled = scaler.transform(X_raw)
-        
+
         preds = model.predict(X_scaled)
-        
-        # We only need the confidence for the very last window
+
         last_window = X_scaled[-lookback:]
         probas = model.predict_proba(last_window)
 
@@ -310,33 +332,37 @@ def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H
         markers = []
         recent_preds = preds[-200:]
         recent_times = chart_data["unix_time"].iloc[-200:].values
-        
+
         last_p = None
         for i, p in enumerate(recent_preds):
-            if p == 2: # Neutral
+            if p == 2:  # Neutral
                 last_p = p
                 continue
-                
-            is_entry = (p != last_p)
-            
-            if p == 0: # BUY
-                markers.append({
-                    "time": int(recent_times[i]),
-                    "position": "belowBar",
-                    "color": "#3fb950" if is_entry else "#3fb95020", 
-                    "shape": "arrowUp" if is_entry else "circle",
-                    "text": "",
-                    "size": 2 if is_entry else 1
-                })
-            elif p == 1: # SELL
-                markers.append({
-                    "time": int(recent_times[i]),
-                    "position": "aboveBar",
-                    "color": "#f85149" if is_entry else "#f8514920", 
-                    "shape": "arrowDown" if is_entry else "circle",
-                    "text": "",
-                    "size": 2 if is_entry else 1
-                })
+
+            is_entry = p != last_p
+
+            if p == 0:  # BUY
+                markers.append(
+                    {
+                        "time": int(recent_times[i]),
+                        "position": "belowBar",
+                        "color": "#3fb950" if is_entry else "#3fb95020",
+                        "shape": "arrowUp" if is_entry else "circle",
+                        "text": "",
+                        "size": 2 if is_entry else 1,
+                    }
+                )
+            elif p == 1:  # SELL
+                markers.append(
+                    {
+                        "time": int(recent_times[i]),
+                        "position": "aboveBar",
+                        "color": "#f85149" if is_entry else "#f8514920",
+                        "shape": "arrowDown" if is_entry else "circle",
+                        "text": "",
+                        "size": 2 if is_entry else 1,
+                    }
+                )
             last_p = p
 
     except Exception as e:
@@ -344,9 +370,9 @@ def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H
 
     signal_map = {0: "BUY", 1: "SELL", 2: "NEUTRAL"}
 
-    # Final Sentiment check for the gauge (Ensure it matches the store)
+    # Final Sentiment check for the gauge
     _, live_scores = SENTIMENT_STORE.get_live_data()
-    sentiment_score = live_scores['sentiment_score']
+    sentiment_score = live_scores["sentiment_score"]
 
     return {
         "symbol": symbol,
@@ -367,49 +393,54 @@ def get_live_prediction(run_id: str, symbol: str = "EURUSD", timeframe: str = "H
 def get_latest_news(symbol: str = "EURUSD", limit: int = 10):
     """Returns the latest news headlines from the live sentiment store."""
     news, _ = SENTIMENT_STORE.get_live_data()
-    
+
     if not news:
         # Fallback to historical CSV if API fails or no news
         csv_path = "data/raw_sentiment/news_with_sentiment_scores.csv"
         if os.path.exists(csv_path):
             df = pd.read_csv(csv_path)
-            if 'time' in df.columns:
-                df['time'] = pd.to_datetime(df['time'], errors='coerce', utc=True)
-                df = df.dropna(subset=['time'])
-                df = df.sort_values('time', ascending=False)
-            
+            if "time" in df.columns:
+                df["time"] = pd.to_datetime(df["time"], errors="coerce", utc=True)
+                df = df.dropna(subset=["time"])
+                df = df.sort_values("time", ascending=False)
+
             latest = df.head(limit).copy()
-            if 'sentiment_score' in latest.columns:
-                latest['sentiment_label'] = latest['sentiment_score'].apply(
-                    lambda x: 'Positive' if x > 0.05 else ('Negative' if x < -0.05 else 'Neutral')
+            if "sentiment_score" in latest.columns:
+                latest["sentiment_label"] = latest["sentiment_score"].apply(
+                    lambda x: (
+                        "Positive"
+                        if x > 0.05
+                        else ("Negative" if x < -0.05 else "Neutral")
+                    )
                 )
             else:
-                latest['sentiment_label'] = 'Neutral'
-                
+                latest["sentiment_label"] = "Neutral"
+
             # SIMULATE LIVE TIMESTAMPS
             now = datetime.now(timezone.utc)
             base_time = now
             for i in range(len(latest)):
-                latest.iloc[i, latest.columns.get_loc('time')] = base_time - timedelta(minutes=i*7)
-            
-            news_list = latest.to_dict('records')
+                latest.iloc[i, latest.columns.get_loc("time")] = base_time - timedelta(
+                    minutes=i * 7
+                )
+
+            news_list = latest.to_dict("records")
             for item in news_list:
-                if isinstance(item.get('time'), pd.Timestamp):
-                    item['time'] = item['time'].isoformat()
-                    
+                if isinstance(item.get("time"), pd.Timestamp):
+                    item["time"] = item["time"].isoformat()
+
             return {"news": news_list}
         return {"news": []}
-    
+
     return {"news": news[:limit]}
 
 
-import asyncio
-
 @router.post("/explain/{run_id}")
-async def get_live_explanation(run_id: str, symbol: str = "EURUSD", timeframe: str = "H1"):
+async def get_live_explanation(
+    run_id: str, symbol: str = "EURUSD", timeframe: str = "H1"
+):
     """Returns SHAP values for the most recent live prediction to explain the model's decision."""
     import shap
-    import random
 
     run_path = os.path.join(MODELS_DIR, run_id)
 
@@ -422,6 +453,7 @@ async def get_live_explanation(run_id: str, symbol: str = "EURUSD", timeframe: s
         raise he
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error loading model: {str(e)}")
 
@@ -434,18 +466,18 @@ async def get_live_explanation(run_id: str, symbol: str = "EURUSD", timeframe: s
             content = f.read()
             cfg = yaml.safe_load(content)
             pipeline_name = cfg.get("data", {}).get("feature_pipeline", "default")
-            is_multimodal = (cfg.get("model", {}).get("modality") == "MultiModal")
+            is_multimodal = cfg.get("model", {}).get("modality") == "MultiModal"
 
     df = fetch_live_data(symbol, timeframe, count=500, pipeline_name=pipeline_name)
     if df is None:
         raise HTTPException(
             status_code=500, detail="Failed to fetch live data from MT5 (Market Closed)"
         )
-        
+
     # DEMO FIX: Restore missing columns for older model weights
     if "RSI_14" not in df.columns and "RSI_14_Z" in df.columns:
         df["RSI_14"] = df["RSI_14_Z"] * 10 + 50
-    
+
     if "real_volume" in feature_cols and "real_volume" not in df.columns:
         df["real_volume"] = 0.0
 
@@ -462,7 +494,9 @@ async def get_live_explanation(run_id: str, symbol: str = "EURUSD", timeframe: s
     def calculate_shap():
         explanation = []
         # Use SHAP if it's a Tree model (Random Forest)
-        if hasattr(model_wrapper, "model") and hasattr(model_wrapper.model, "estimators_"):
+        if hasattr(model_wrapper, "model") and hasattr(
+            model_wrapper.model, "estimators_"
+        ):
             try:
                 # We explain the last row (the current live signal)
                 explainer = shap.TreeExplainer(model_wrapper.model)
@@ -478,18 +512,21 @@ async def get_live_explanation(run_id: str, symbol: str = "EURUSD", timeframe: s
                     target_shap = shap_values[0]
 
                 feature_impacts = {
-                    feature_cols[i]: float(target_shap[i]) for i in range(len(feature_cols))
+                    feature_cols[i]: float(target_shap[i])
+                    for i in range(len(feature_cols))
                 }
-                
+
                 if is_multimodal:
                     # Inject a high impact for News Sentiment if it exists in the model
                     if "sentiment_score" in feature_cols:
-                        pass # SHAP will find it naturally
+                        pass  # SHAP will find it naturally
 
                 sorted_impacts = sorted(
                     feature_impacts.items(), key=lambda x: abs(x[1]), reverse=True
                 )
-                explanation = [{"feature": k, "impact": v} for k, v in sorted_impacts[:10]]
+                explanation = [
+                    {"feature": k, "impact": v} for k, v in sorted_impacts[:10]
+                ]
 
             except Exception as e:
                 print(f"SHAP TreeExplainer failed: {e}")
@@ -500,15 +537,18 @@ async def get_live_explanation(run_id: str, symbol: str = "EURUSD", timeframe: s
                 import numpy as np
                 import torch
                 import random
-                lookback = getattr(model_wrapper, 'config', {}).get('lookback', 60)
+
+                lookback = getattr(model_wrapper, "config", {}).get("lookback", 60)
                 if len(X_scaled) < lookback:
                     raise ValueError("Not enough data for sequence lookback")
-                    
+
                 # Fix: Use a global random sample for SHAP background instead of just the last 10 hours
-                bg_indices = random.sample(range(len(X_scaled) - 1), min(10, len(X_scaled) - 1))
+                bg_indices = random.sample(
+                    range(len(X_scaled) - 1), min(10, len(X_scaled) - 1)
+                )
                 background = X_scaled[bg_indices]
-                history = X_scaled[-lookback:-1] # The fixed history window
-                
+                history = X_scaled[-lookback:-1]  # The fixed history window
+
                 def model_predict(x_pert):
                     # x_pert has shape (N, features)
                     N = len(x_pert)
@@ -525,7 +565,7 @@ async def get_live_explanation(run_id: str, symbol: str = "EURUSD", timeframe: s
 
                 explainer = shap.KernelExplainer(model_predict, background)
                 shap_values = explainer.shap_values(X_scaled[-1:], nsamples=100)
-                
+
                 # Get actual prediction for the last window
                 windows_single = np.expand_dims(X_scaled[-lookback:], 0)
                 windows_t_single = torch.from_numpy(windows_single).float()
@@ -540,17 +580,22 @@ async def get_live_explanation(run_id: str, symbol: str = "EURUSD", timeframe: s
                     target_shap = shap_values[0]
 
                 feature_impacts = {
-                    feature_cols[i]: float(target_shap[i]) for i in range(len(feature_cols))
+                    feature_cols[i]: float(target_shap[i])
+                    for i in range(len(feature_cols))
                 }
-                
+
                 sorted_impacts = sorted(
                     feature_impacts.items(), key=lambda x: abs(x[1]), reverse=True
                 )
-                explanation = [{"feature": k, "impact": v} for k, v in sorted_impacts[:10]]
+                explanation = [
+                    {"feature": k, "impact": v} for k, v in sorted_impacts[:10]
+                ]
 
             except Exception as e:
                 print(f"SHAP KernelExplainer failed: {e}")
-                explanation = [{"feature": "Hybrid Model Context Active", "impact": 0.05}]
+                explanation = [
+                    {"feature": "Hybrid Model Context Active", "impact": 0.05}
+                ]
         return explanation
 
     # Run the heavy SHAP calculation in a background thread to prevent blocking the event loop
@@ -559,9 +604,12 @@ async def get_live_explanation(run_id: str, symbol: str = "EURUSD", timeframe: s
     return {"run_id": run_id, "symbol": symbol, "top_features": explanation}
 
 
-
 @router.post("/trade")
-def execute_trade(req: TradeRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+def execute_trade(
+    req: TradeRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     """Executes a market order via MT5."""
     res = execute_market_order(
         symbol=req.symbol,
@@ -586,9 +634,9 @@ def execute_trade(req: TradeRequest, db: Session = Depends(get_db), current_user
         price=executed_price,
         lot_size=float(req.lot_size),
         model_used=req.model_used,
-        pnl=0.0, # Initial PnL is 0
+        pnl=0.0,  # Initial PnL is 0
         mt5_order_ticket=order_ticket,
-        status="OPEN"
+        status="OPEN",
     )
     db.add(new_trade)
     db.commit()
@@ -596,8 +644,11 @@ def execute_trade(req: TradeRequest, db: Session = Depends(get_db), current_user
 
     return res
 
+
 @router.post("/portfolio/sync")
-def sync_portfolio(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+def sync_portfolio(
+    db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)
+):
     """Syncs open and closed trades with MT5."""
     import MetaTrader5 as mt5
     from datetime import datetime, timedelta
@@ -605,12 +656,15 @@ def sync_portfolio(db: Session = Depends(get_db), current_user: models.User = De
     if not mt5.initialize():
         print("MT5 Sync Failed: Initialization failed")
         raise HTTPException(status_code=500, detail="MT5 Initialization failed")
-    
+
     try:
-        open_trades = db.query(models.Trade).filter(
-            models.Trade.user_id == current_user.id, 
-            models.Trade.status == "OPEN"
-        ).all()
+        open_trades = (
+            db.query(models.Trade)
+            .filter(
+                models.Trade.user_id == current_user.id, models.Trade.status == "OPEN"
+            )
+            .all()
+        )
 
         if not open_trades:
             return {"status": "success", "message": "No open trades to sync"}
@@ -629,11 +683,11 @@ def sync_portfolio(db: Session = Depends(get_db), current_user: models.User = De
         date_from = datetime.now() - timedelta(days=30)
         date_to = datetime.now() + timedelta(days=1)
         deals = mt5.history_deals_get(date_from, date_to)
-        
+
         deals_by_position = {}
         if deals:
             for d in deals:
-                pos_id = getattr(d, 'position_id', 0)
+                pos_id = getattr(d, "position_id", 0)
                 if pos_id != 0:
                     if pos_id not in deals_by_position:
                         deals_by_position[pos_id] = []
@@ -644,7 +698,7 @@ def sync_portfolio(db: Session = Depends(get_db), current_user: models.User = De
             ticket = trade.mt5_order_ticket
             if not ticket:
                 continue
-                
+
             # 1. Check if still open
             if ticket in active_positions:
                 pos = active_positions[ticket]
@@ -654,11 +708,11 @@ def sync_portfolio(db: Session = Depends(get_db), current_user: models.User = De
             elif ticket in deals_by_position:
                 pos_deals = deals_by_position[ticket]
                 # Total profit for this position is the sum of profit of all its deals
-                total_profit = sum(getattr(d, 'profit', 0.0) for d in pos_deals)
+                total_profit = sum(getattr(d, "profit", 0.0) for d in pos_deals)
                 trade.pnl = float(total_profit)
                 trade.status = "CLOSED"
                 synced_count += 1
-            # 3. Fallback: If not in positions AND not in last 30 days history, 
+            # 3. Fallback: If not in positions AND not in last 30 days history,
             # it might be old or closed manually without a deal trace we can find easily
             else:
                 # We mark as closed to stop trying to sync it every time
@@ -670,16 +724,25 @@ def sync_portfolio(db: Session = Depends(get_db), current_user: models.User = De
     except Exception as e:
         db.rollback()
         import traceback
+
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Sync error: {str(e)}")
 
+
 @router.get("/portfolio")
-def get_portfolio(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+def get_portfolio(
+    db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)
+):
     """Returns the logged-in user's trade history and calculated statistics."""
     try:
         # Fetch all trades sorted chronologically for equity curve
-        trades_asc = db.query(models.Trade).filter(models.Trade.user_id == current_user.id).order_by(models.Trade.timestamp.asc()).all()
-        
+        trades_asc = (
+            db.query(models.Trade)
+            .filter(models.Trade.user_id == current_user.id)
+            .order_by(models.Trade.timestamp.asc())
+            .all()
+        )
+
         # Original trades list (descending) for the table
         trades = sorted(trades_asc, key=lambda x: x.timestamp, reverse=True)
 
@@ -694,25 +757,33 @@ def get_portfolio(db: Session = Depends(get_db), current_user: models.User = Dep
                 "profit_factor": 0.0,
                 "max_drawdown": 0.0,
                 "equity_curve": [],
-                "model_performance": {}
+                "model_performance": {},
             }
 
         # Calculate statistics
         winning_trades = sum(1 for t in trades if t.pnl is not None and t.pnl > 0)
-        win_rate = (winning_trades / total_trades * 100)
+        win_rate = winning_trades / total_trades * 100
         total_pnl = sum((t.pnl if t.pnl is not None else 0.0) for t in trades)
 
         # Advanced Metrics
-        gross_profit = sum((t.pnl if t.pnl is not None and t.pnl > 0 else 0.0) for t in trades)
-        gross_loss = abs(sum((t.pnl if t.pnl is not None and t.pnl < 0 else 0.0) for t in trades))
-        profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else (gross_profit if gross_profit > 0 else 0.0)
+        gross_profit = sum(
+            (t.pnl if t.pnl is not None and t.pnl > 0 else 0.0) for t in trades
+        )
+        gross_loss = abs(
+            sum((t.pnl if t.pnl is not None and t.pnl < 0 else 0.0) for t in trades)
+        )
+        profit_factor = (
+            (gross_profit / gross_loss)
+            if gross_loss > 0
+            else (gross_profit if gross_profit > 0 else 0.0)
+        )
 
         # Equity Curve and Max Drawdown
         equity_curve = []
         cumulative_pnl = 0.0
         peak_equity = 0.0
         max_dd = 0.0
-        
+
         last_time = 0
         # Start with 0 point
         if trades_asc:
@@ -726,21 +797,20 @@ def get_portfolio(db: Session = Depends(get_db), current_user: models.User = Dep
             pnl = float(t.pnl if t.pnl is not None else 0.0)
             cumulative_pnl += pnl
             pnl_list.append(pnl)
-            
+
             current_time = int(t.timestamp.timestamp())
             if current_time <= last_time:
                 current_time = last_time + 1
-            
-            equity_curve.append({
-                "time": current_time,
-                "value": round(cumulative_pnl, 2)
-            })
+
+            equity_curve.append(
+                {"time": current_time, "value": round(cumulative_pnl, 2)}
+            )
             last_time = current_time
 
             # Peak and Drawdown
             if cumulative_pnl > peak_equity:
                 peak_equity = cumulative_pnl
-            
+
             drawdown = peak_equity - cumulative_pnl
             if drawdown > max_dd:
                 max_dd = drawdown
@@ -749,7 +819,7 @@ def get_portfolio(db: Session = Depends(get_db), current_user: models.User = Dep
             m = t.model_used or "Manual"
             if m not in model_perf:
                 model_perf[m] = {"wins": 0, "total": 0, "pnl": 0.0}
-            
+
             model_perf[m]["total"] += 1
             model_perf[m]["pnl"] += pnl
             if pnl > 0:
@@ -757,15 +827,17 @@ def get_portfolio(db: Session = Depends(get_db), current_user: models.User = Dep
 
         # Sharpe Ratio (Crude per-trade approximation)
         import numpy as np
+
         sharpe = 0.0
         if len(pnl_list) > 1:
             mean_ret = np.mean(pnl_list)
             std_ret = np.std(pnl_list)
             if std_ret > 0:
-                sharpe = (mean_ret / std_ret) * np.sqrt(252) # Scaled to annual approx
+                sharpe = (mean_ret / std_ret) * np.sqrt(252)  # Scaled to annual approx
 
         # Clean NaN/Inf
         import math
+
         for t in trades:
             if t.pnl is not None and (math.isnan(t.pnl) or math.isinf(t.pnl)):
                 t.pnl = 0.0
@@ -781,15 +853,17 @@ def get_portfolio(db: Session = Depends(get_db), current_user: models.User = Dep
             "profit_factor": round(float(profit_factor), 2),
             "max_drawdown": round(float(max_dd), 2),
             "equity_curve": equity_curve,
-            "model_performance": model_perf
+            "model_performance": model_perf,
         }
-        
+
         response_obj = schemas.PortfolioResponse.model_validate(returned_dict)
-        return response_obj.model_dump(mode='json')
+        return response_obj.model_dump(mode="json")
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/backtest/{run_id}")
 def run_dynamic_backtest(run_id: str, req: BacktestRequest):

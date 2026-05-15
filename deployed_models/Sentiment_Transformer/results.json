@@ -32,25 +32,5 @@
             "f1-score": 0.5275505802391429,
             "support": 6240.0
         }
-    },
-    "feature_importance": {
-        "ADX_14": NaN,
-        "ATRr_14": NaN,
-        "BBWidth": NaN,
-        "CCI_14_0.015": NaN,
-        "EFI_13": NaN,
-        "MFI_14": NaN,
-        "MOM_10": NaN,
-        "ROC_10": NaN,
-        "RSI_14": NaN,
-        "STOCHRSIk_14_14_3_3": NaN,
-        "STOCHk_14_3_3": NaN,
-        "TRIX_30_9": NaN,
-        "TSI_13_25_13": NaN,
-        "VWAP_D": NaN,
-        "sent_neg": NaN,
-        "sent_neu": NaN,
-        "sent_pos": NaN,
-        "sentiment_score": NaN
     }
 }

@@ -215,7 +215,7 @@ def main():
         # Modular Pipeline
         pipeline_name = config["data"].get("feature_pipeline", "default")
         enriched_df = run_pipeline(pipeline_name, df)
-        
+
         # Determine timeframe unit (H1 -> h, D1 -> d)
         timeframe = config["project"].get("timeframe", "H1")
         unit = "d" if "D" in timeframe.upper() else "h"
@@ -224,9 +224,9 @@ def main():
             enriched_df,
             horizons=config["data"].get("horizons", [5, 12, 24]),
             atr_multipliers=config["data"].get("atr_multipliers", [1.0, 2.0, 3.0]),
-            unit=unit
+            unit=unit,
         )
-        
+
         # Determine modality from config
         modality = config.get("model", {}).get("modality", "Technical")
         # Include metadata to avoid KeyError in split_components
@@ -238,14 +238,14 @@ def main():
         # Use DataModule to prepare the final aligned dataset
         processed_dir = config["data"]["processed_dir"]
         dm = DataModule(processed_dir=processed_dir)
-        
+
         # Before preparing, we must save the base components so DataModule can find them
         feature_dict = split_components(final_df)
         DataModule.save_features(feature_dict, processed_dir)
 
         # Now reload with alignment (and sentiment if requested)
         aligned_df = dm.prepare_dataset(components=components)
-        
+
         # Split aligned_df back into components for training
         # This ensures sentiment is properly merged into the training set
         # split_components automatically puts non-target/non-metadata cols into 'technical_features'

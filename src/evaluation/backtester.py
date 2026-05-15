@@ -48,7 +48,7 @@ def run_backtest_session(
     dm = DataModule(processed_dir)
     # Join features and metadata (price) for the backtester
     df = dm.prepare_dataset(components=["technical_features", "metadata"])
-    
+
     if "time" in df.columns:
         df["time"] = pd.to_datetime(df["time"], utc=True)
         df.set_index("time", inplace=True)
@@ -61,16 +61,18 @@ def run_backtest_session(
         n_samples = len(df)
         train_end = int(n_samples * train_pct)
         val_end = int(n_samples * (train_pct + val_pct))
-        
+
         if suffix == "Validation":
             test_df = df.iloc[train_end:val_end].copy()
-            print(f"Filtering data by percentage (Validation Set)...")
+            print("Filtering data by percentage (Validation Set)...")
         else:
             test_df = df.iloc[val_end:].copy()
-            print(f"Filtering data by percentage (Test Set)...")
+            print("Filtering data by percentage (Test Set)...")
     else:
         # Ensure start_date and end_date are timezone-aware to match the index
-        print(f"Filtering data from {start_date} to {end_date if end_date else 'End'}...")
+        print(
+            f"Filtering data from {start_date} to {end_date if end_date else 'End'}..."
+        )
 
         # Convert string dates to UTC-aware Timestamps and ensure normalized precision
         start_ts = pd.to_datetime(start_date, utc=True).floor("s")
@@ -83,7 +85,9 @@ def run_backtest_session(
 
     print(f"Backtest dataset size: {len(test_df)} bars")
     if len(test_df) == 0:
-        print(f"Error: No data found for the specified range. Index Range: {df.index[0]} to {df.index[-1]}")
+        print(
+            f"Error: No data found for the specified range. Index Range: {df.index[0]} to {df.index[-1]}"
+        )
         return
     # 3. Strategy Mapping
     strategies = {

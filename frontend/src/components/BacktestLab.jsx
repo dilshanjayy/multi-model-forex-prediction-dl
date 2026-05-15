@@ -8,9 +8,9 @@ export default function BacktestLab() {
   const selectedModel = useStore(state => state.selectedModel);
   const [startDate, setStartDate] = useState('2024-01-01');
   const [endDate, setEndDate] = useState('2025-01-01');
-  const [strategy, setStrategy] = useState('TripleBarrier');
+  const [strategy, setStrategy] = useState('ContinuousSignalExecution');
   const [atrMult, setAtrMult] = useState(3.0);
-  const [confThreshold, setConfThreshold] = useState(0.40);
+  const [confThreshold, setConfThreshold] = useState(0.5);
   
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);

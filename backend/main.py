@@ -9,7 +9,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from backend.db.database import engine, Base
 from backend.api.routes import router as api_router
-from backend.api.websockets import router as ws_router
 from backend.api.auth import router as auth_router
 from backend.api.admin import router as admin_router
 
@@ -18,24 +17,28 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Falcon Trading API", version="1.0.0")
 
+
 @app.on_event("startup")
 async def startup_event():
     """Pre-load ML models on startup for low-latency live inference."""
     try:
         from src.data.sentiment_processor import get_sentiment_engine
+
         print("--- Pre-loading Sentiment Engine (FinBERT) ---")
         get_sentiment_engine()
         print("--- Sentiment Engine Ready ---")
-        
+
         from backend.api.routes import preload_all_models
+
         preload_all_models()
-        
+
     except Exception as e:
         print(f"Warning: Could not pre-load engines: {e}")
 
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # For development
+    allow_origins=["*"],  # For development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,7 +47,6 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(admin_router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(api_router, prefix="/api/v1")
-app.include_router(ws_router)
 
 if __name__ == "__main__":
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)

@@ -36,7 +36,6 @@ class MLBaseStrategy(Strategy):
 
         # 2. Reconstruct Model metadata
         from src.models.model_factory import ModelFactory
-        from src.models.base_torch_model import PyTorchBaseModel
 
         self.model_type = artifacts.get("model_type", "RandomForest")
         self.model_params = artifacts.get("model_params", {})
@@ -48,9 +47,11 @@ class MLBaseStrategy(Strategy):
         if self.model is None:
             # Standalone mode: Reconstruct and load weights
             self.model = ModelFactory.get_model(self.model_type, self.model_params)
-            
+
             if self.artifacts is None:
-                state_path = self.model_path.replace("model.joblib", "model_state.joblib")
+                state_path = self.model_path.replace(
+                    "model.joblib", "model_state.joblib"
+                )
                 if os.path.exists(state_path):
                     self.model.load(state_path)
                 elif "model" in artifacts:
@@ -66,11 +67,13 @@ class MLBaseStrategy(Strategy):
         else:
             self.atr = None
 
-        # DEMO FIX: Restore missing columns for older model weights during backtest
         if "RSI_14" not in self.data.df.columns and "RSI_14_Z" in self.data.df.columns:
             self.data.df["RSI_14"] = self.data.df["RSI_14_Z"] * 10 + 50
-        
-        if "real_volume" in self.feature_cols and "real_volume" not in self.data.df.columns:
+
+        if (
+            "real_volume" in self.feature_cols
+            and "real_volume" not in self.data.df.columns
+        ):
             self.data.df["real_volume"] = 0.0
 
         # Pre-calculate features and ALL predictions at once (Bulk Inference)
@@ -79,11 +82,13 @@ class MLBaseStrategy(Strategy):
         self.scaled_features = self.scaler.transform(self.prepared_data)
 
         print(f"Running bulk inference on {len(self.scaled_features)} rows...")
-        
+
         # FEATURE AUDIT: Print a summary of the first row to detect environment drift
-        first_row_sum = np.sum(self.scaled_features[self.horizon + 10]) # Skip warm-up
-        print(f"FEATURE AUDIT: Checksum of row {self.horizon + 10}: {first_row_sum:.6f}")
-        
+        first_row_sum = np.sum(self.scaled_features[self.horizon + 10])  # Skip warm-up
+        print(
+            f"FEATURE AUDIT: Checksum of row {self.horizon + 10}: {first_row_sum:.6f}"
+        )
+
         # Both Tabular and Deep Learning models expect the 2D scaled_features here.
         # The PyTorchBaseModel internally converts the 2D array into 3D sliding windows
         # and pads the warm-up period to ensure the output length matches the input length.
@@ -94,8 +99,11 @@ class MLBaseStrategy(Strategy):
         unique, counts = np.unique(self.all_predictions, return_counts=True)
         dist = dict(zip(unique, counts))
         print(f"Signal Distribution: {dist}")
-        
-        passed_conf = np.sum((self.all_predictions != 2) & (np.max(self.all_probas, axis=1) >= self.conf_threshold))
+
+        passed_conf = np.sum(
+            (self.all_predictions != 2)
+            & (np.max(self.all_probas, axis=1) >= self.conf_threshold)
+        )
         print(f"Signals passing confidence ({self.conf_threshold}): {passed_conf}")
 
         self.current_idx = 0
@@ -120,38 +128,30 @@ class TripleBarrierStrategy(MLBaseStrategy):
     def next(self):
         prediction, confidence = self.get_prediction()
 
-        # 1. Handle Vertical Barrier (Time-out Exit)
-        # We manually check the age of every open trade
+        # Handle Vertical Barrier (Time-out Exit)
         for trade in self.trades:
             if len(self.data) - trade.entry_bar >= self.horizon:
                 trade.close()
 
-        # 2. Get ATR for dynamic TP/SL
+        # Get ATR for dynamic TP/SL
         current_atr = (
             self.atr[self.current_idx - 1] if self.atr is not None else 0.0002
         ) * self.atr_multiplier
         price = self.data.Close[-1]
 
-        # 3. Signal-based Entry with Confidence Filter
-        # BARRIER-PURE: We only enter if we don't have a position.
-        # Once in a trade, we ignore signals and wait for barriers to hit.
+        # Signal-based Entry with Confidence Filter
         if self.position:
             return
 
         if (
             prediction == 0 and confidence >= self.conf_threshold
         ):  # Profit predicted (Up)
-            self.buy(
-                size=self.v_size, tp=price + current_atr, sl=price - current_atr
-            )
+            self.buy(size=self.v_size, tp=price + current_atr, sl=price - current_atr)
         elif (
             prediction == 1 and confidence >= self.conf_threshold
         ):  # Loss predicted (Down)
-            self.sell(
-                size=self.v_size, tp=price - current_atr, sl=price + current_atr
-            )
+            self.sell(size=self.v_size, tp=price - current_atr, sl=price + current_atr)
         elif prediction == 2:  # Neutral
-            # We "do nothing".
             pass
 
 
@@ -184,7 +184,6 @@ class MajorityVoteStrategy(MLBaseStrategy):
 
     def init(self):
         super().init()
-        # window_size is no longer hardcoded!
         self.window_size = self.horizon
         self.signal_history = []
 
