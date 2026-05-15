@@ -77,9 +77,3 @@ Developed as a Final Year Project for **NSBM Green University** in partnership w
 This project achieved rigorous performance benchmarks:
 *   **Nguyen et al. (2024) Replication:** Successfully achieved a **4.65 Profit Factor** on the Daily (D1) validation set.
 *   **Multi-Modal Alpha:** The Sentiment Transformer achieved a **+3.62% Return** on an out-of-sample H1 test set, proving the efficacy of NLP sentiment in filtering market noise.
-
-Full detailed chapters, diagrams (UML Class, Use Case, Sequence), and UAT results are available in the `/report` directory.
-
-## ⚖️ License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
