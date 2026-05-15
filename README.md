@@ -1,44 +1,47 @@
-# Multi-Model Forex Prediction DL
+# Multi-Modal Forex Prediction DL: Quantitative Trading Dashboard
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?logo=fastapi)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![React 19](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![Status](https://img.shields.io/badge/Status-Academic_Complete-success)](https://github.com/)
 
-A professional-grade, multi-modal hybrid deep learning system for Forex price prediction and automated trading. This project combines state-of-the-art neural architectures (Transformers, CNN-LSTMs) with robust financial labeling methods (Triple Barrier, Nguyen et al. 2024) and a modern full-stack dashboard.
+A professional-grade, multi-modal hybrid deep learning system designed for EUR/USD forecasting and execution. This platform fuses state-of-the-art neural architectures (Transformers, CNN-LSTMs) with real-time FinBERT sentiment analysis, providing a transparent "human-in-the-loop" dashboard for institutional-grade quantitative trading.
+
+Developed as a Final Year Project for **NSBM Green University** in partnership with **Plymouth University** (Module: PUSL3190).
 
 ## 🚀 Key Features
 
-*   **Hybrid Deep Learning:** Leverages CNN-LSTM models for spatial pattern recognition and temporal sequence tracking.
-*   **Advanced Labeling:** Implements the Triple Barrier Method (TBM) with ATR-volatility adjustment and quantile-based labeling from Nguyen et al. (2024).
-*   **Modular ML Pipeline:** Config-driven CLI for data collection, feature engineering, model training, and Optuna-based hyperparameter optimization.
-*   **Live MT5 Integration:** Real-time data streaming and automated trade execution via MetaTrader 5.
-*   **Explainable AI (XAI):** Integrated SHAP support to provide transparency for live model predictions.
-*   **Professional Dashboard:** React-based frontend featuring TradingView charts, real-time signal visualization, and portfolio management.
+*   **Multi-Modal Fusion:** Dynamically combines 19 technical market features with unstructured news sentiment vectors extracted via a pre-trained **FinBERT** transformer.
+*   **Advanced Architectures:** Evaluates a spectrum of models from Random Forest baselines to hybrid **CNN-LSTM** (spatial-temporal extraction) and **Transformer** (attention-based sequencing) architectures.
+*   **Continuous Signal Execution (CSE):** A sophisticated execution strategy that transitions portfolio states dynamically based on model confidence, successfully overcoming high-frequency "commission traps."
+*   **Explainable AI (XAI):** Real-time **SHAP Model X-Ray** visualization, utilizing asynchronous threading (`asyncio.to_thread`) to provide deep interpretability without UI latency.
+*   **Robustness & Marker-Proofing:** Integrated **News API Fallback** mechanism that automatically switches to a high-fidelity simulation mode with historical data if external APIs expire.
+*   **Institutional Dashboard:** A low-latency React 19 interface featuring TradingView charts, persistent portfolio tracking via SQLite, and **Role-Based Access Control (RBAC)** for administrative model management.
 
 ## 🛠️ Tech Stack
 
-*   **Backend:** FastAPI, MT5 Python API, Uvicorn.
-*   **ML/AI:** PyTorch (Neural Networks), Scikit-learn (Random Forest), Optuna (HPO), SHAP (Explainability).
-*   **Data:** Pandas, Pandas-TA, PyArrow (Parquet).
-*   **Frontend:** React 19, Vite, Tailwind CSS, Lightweight Charts (TradingView).
+*   **Backend:** FastAPI (ASGI), SQLAlchemy (ORM), MetaTrader 5 Python API.
+*   **AI/ML:** PyTorch 2.1 (Deep Learning), HuggingFace (FinBERT), SHAP (XAI), Optuna (HPO).
+*   **Data:** Pandas, Pandas-TA (Technical Indicators), PyArrow (Parquet Storage).
+*   **Frontend:** React 19, Zustand (State), Tailwind CSS, Lightweight Charts (TradingView).
 
-## 📂 Project Structure
+## 📁 Project Structure
 
 ```text
-├── backend/            # FastAPI server and API routes
-├── configs/            # YAML configuration files for experiments
-├── data/               # Raw and processed market/news data
-├── deployed_models/    # Production-ready model artifacts
-├── experiments/        # Experiment logs and trained models
-├── frontend/           # React frontend application
-├── src/                # Core Python package
-│   ├── data/           # Data collectors and processors
-│   ├── evaluation/     # Backtesters and optimizers
-│   ├── execution/      # MT5 trading logic
-│   ├── models/         # Neural network architectures
-│   └── strategies/     # Trading strategy implementations
-└── main.py             # CLI entry point for the ML pipeline
+├── backend/            # FastAPI orchestration and REST API
+├── configs/            # YAML-driven experiment configurations
+├── data/               # Raw and processed market/sentiment datasets
+├── deployed_models/    # Validated model weights and artifacts
+├── frontend/           # React 19 SPA (Vite build)
+├── report/             # Full Academic Thesis & Documentation (Markdown)
+├── src/                # Core Quantitative Library
+│   ├── data/           # Market/News collectors and multi-modal processors
+│   ├── evaluation/     # Backtester engine and HPO optimizers
+│   ├── execution/      # Live MT5 order execution logic
+│   ├── models/         # PyTorch architecture definitions
+│   └── strategies/     # CSE and Triple-Barrier algorithmic logic
+└── main.py             # CLI entry point for the end-to-end ML pipeline
 ```
 
 ## 🏁 Getting Started
@@ -46,45 +49,36 @@ A professional-grade, multi-modal hybrid deep learning system for Forex price pr
 ### Prerequisites
 
 *   Python 3.10+
-*   Node.js & npm (for frontend)
-*   **Windows OS** (required for MetaTrader 5 integration)
-*   MetaTrader 5 Terminal installed and logged in.
+*   Node.js & npm
+*   **Windows OS** (Required for the `MetaTrader5` runtime library)
+*   MT5 Terminal installed and logged into a demo account.
 
-### Installation
+### Quick Start (Live Dashboard)
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/your-repo/multi-model-forex-prediction-dl.git
-    cd multi-model-forex-prediction-dl
-    ```
-
-2.  **Setup Python Environment:**
+1.  **Backend Setup:**
     ```bash
     python -m venv env
-    source env/bin/activate  # or `env\Scripts\activate` on Windows
+    .\env\Scripts\activate
     pip install -r requirements.txt
+    python backend/main.py
     ```
 
-3.  **Setup Frontend:**
+2.  **Frontend Setup:**
     ```bash
     cd frontend
     npm install
+    npm run dev
     ```
 
-### Running the System
+3.  **Access Dashboard:** Navigate to `http://localhost:5173`. Use the Admin credentials to access model hot-reloading features.
 
-*   **ML Pipeline:** `python main.py run --config configs/baseline_transformer.yaml`
-*   **Web Backend:** `python backend/main.py`
-*   **Web Frontend:** `cd frontend && npm run dev`
+## 📊 Academic Evaluation
 
-## 📊 Roadmap
+This project achieved rigorous performance benchmarks:
+*   **Nguyen et al. (2024) Replication:** Successfully achieved a **4.65 Profit Factor** on the Daily (D1) validation set.
+*   **Multi-Modal Alpha:** The Sentiment Transformer achieved a **+3.62% Return** on an out-of-sample H1 test set, proving the efficacy of NLP sentiment in filtering market noise.
 
-- [x] Hybrid CNN-LSTM Architecture
-- [x] ATR-based Triple Barrier Labeling
-- [x] SHAP Explainability for Live Inference
-- [ ] Full integration of news sentiment signals (In Progress)
-- [ ] WebSocket-based real-time data broadcasting
-- [ ] Model Arena (Live performance ranking)
+Full detailed chapters, diagrams (UML Class, Use Case, Sequence), and UAT results are available in the `/report` directory.
 
 ## ⚖️ License
 

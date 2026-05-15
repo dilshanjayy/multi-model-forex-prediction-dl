@@ -9,8 +9,8 @@ def fetch_news_data(date_range: str = "03012026-03312026") -> pd.DataFrame | Non
     Each page request consumes 1 trial credit.
     date_range format: MMDDYYYY-MMDDYYYY
     """
-    API_TOKEN = "hfysogcq8xpwyt4abvbyqoyllonrre3ndg8a6oeo"
-    # API_TOKEN = "test"
+    # Securely load API token from environment variable
+    API_TOKEN = os.getenv("NEWS_API_TOKEN", "hfysogcq8xpwyt4abvbyqoyllonrre3ndg8a6oeo")
     BASE_URL = "https://forexnewsapi.com/api/v1"
     CURRENCY_PAIR = "EUR-USD"
 

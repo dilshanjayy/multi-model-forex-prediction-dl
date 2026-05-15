@@ -7,10 +7,11 @@ from fastapi.middleware.cors import CORSMiddleware
 # Add the project root to the python path so we can import from src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from backend.db.database import engine, Base
+from backend.db.database import engine, Base, SessionLocal
 from backend.api.routes import router as api_router
-from backend.api.auth import router as auth_router
+from backend.api.auth import router as auth_router, get_password_hash
 from backend.api.admin import router as admin_router
+from backend.db import models
 
 # Create DB tables
 Base.metadata.create_all(bind=engine)
@@ -18,9 +19,32 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Falcon Trading API", version="1.0.0")
 
 
+def seed_admin_user():
+    """Automatically creates a default admin user if the database is empty."""
+    db = SessionLocal()
+    try:
+        admin_exists = db.query(models.User).filter(models.User.is_admin == True).first()
+        if not admin_exists:
+            print("--- Seeding Default Admin User ---")
+            default_admin = models.User(
+                username="admin",
+                email="admin@example.com",
+                hashed_password=get_password_hash("admin123"),
+                is_admin=True,
+            )
+            db.add(default_admin)
+            db.commit()
+            print("SUCCESS: Default Admin created (User: admin, Pass: admin123)")
+    except Exception as e:
+        print(f"Error seeding admin user: {e}")
+    finally:
+        db.close()
+
+
 @app.on_event("startup")
 async def startup_event():
-    """Pre-load ML models on startup for low-latency live inference."""
+    """Pre-load ML models and seed database on startup."""
+    seed_admin_user()
     try:
         from src.data.sentiment_processor import get_sentiment_engine
 

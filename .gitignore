@@ -4,3 +4,8 @@ GEMINI.md
 __pycache__/
 research/
 report/
+.env
+.env.local
+.env.*.local
+*.db
+*.log
