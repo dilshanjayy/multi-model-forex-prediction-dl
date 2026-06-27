@@ -34,7 +34,6 @@ Developed as a Final Year Project for **NSBM Green University** in partnership w
 ├── data/               # Raw and processed market/sentiment datasets
 ├── deployed_models/    # Validated model weights and artifacts
 ├── frontend/           # React 19 SPA (Vite build)
-├── report/             # Full Academic Thesis & Documentation (Markdown)
 ├── src/                # Core Quantitative Library
 │   ├── data/           # Market/News collectors and multi-modal processors
 │   ├── evaluation/     # Backtester engine and HPO optimizers
